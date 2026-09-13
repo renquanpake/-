@@ -249,16 +249,18 @@ study/
 
 ### T1 美术资产生成（未完成部分）
 
-- 现状：manifest 80 项中 60 项已生成于 `game/art/`，20 项待生成（crops 9、tiles 5、buildings 3、challenge 1、character 2）。
+- 现状：manifest 80 项中 60 项已生成于 `game/art/`（纯白底），20 项待生成（crops 9、tiles 5、buildings 3、challenge 1、character 2）。
 - 执行：`node tools/gen-art.mjs --manifest tools/art-manifest.json --concurrency 4`（幂等，已存在自动跳过），预计 5 分钟。
+- 新资产改用品红幕模板（见 T2 实测结论），旧白底资产保留、后处理时自动识别。
 - 校验：全部 80 项存在且为有效 PNG（magic bytes 89504e4e）。
 - 遗留：`game/art/crops.bak/` 为 rev1 首批 8 张备份，T3 完成后可清理。
 
 ### T2 美术后处理脚本 `tools/post-art.mjs`（未开始）
 
-- API 能力结论（2026-09-13 实测）：该生图队列拒绝 `background` 与 `output_format` 参数（HTTP 400），**无法直出真透明 PNG**；品红/纯色幕提示词失控（实测品红渲染为粉紫渐变，纯幕像素占比 0%）。绿幕另有一个根本缺陷：主体多为绿色植物，会被键掉。
-- **定案方案：白底 + 四角 flood-fill 抠图**——从图像四角向内泛洪，仅移除与边界连通的近白区域（RGB 距离容差 ~12%，容差可配），主体内部白色高光、眼睛等因不与边界连通而完整保留；对带描边像素画可靠性最高。
-- 降采样至 256×256、alpha 边缘 1px 收缩去白边、透明边紧凑裁剪、输出到 `game/art/final/`（保持子目录结构）。
+- API 能力结论（2026-09-13 实测）：该生图队列拒绝 `background` 与 `output_format` 参数（HTTP 400），**无法直出真透明 PNG**。
+- **色幕提示词实验结论**：底色描述放句首 + 精确色号 + 强调 flat/uniform + 显式禁止 gradient/vignette/shadow/texture 后，品红幕可控——边框均色 (254,24,241)，目标色占比 90.7%（同提示词弱写法仅 0%）；绿幕最平（σ5.7）但与绿色主体融合（63.8%）弃用。**胜出模板已固化到 art-manifest.json 的 style_prefix。**
+- **定案：品红键控优先，白键兜底**——post-art 按边框均色自动识别每张图的幕色（品红/白），从四角 flood-fill 移除与边界连通的幕色区域（RGB 距离容差 ~15% 可配），主体内部同色像素因不连通而保留；品红幕资产做 despill（边缘品红色相像素向邻色收敛），深色描边进一步降低串色风险。
+- 降采样至 256×256、alpha 边缘 1px 收缩去边、透明边紧凑裁剪、输出到 `game/art/final/`（保持子目录结构）。
 - 校验：输出 PNG 必须含 alpha 通道，四角像素 alpha==0，主体像素占比报告（异常小主体报警）。
 
 ### T3 题库转换管线（未开始）

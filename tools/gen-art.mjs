@@ -89,6 +89,7 @@ async function main() {
       ? args[args.indexOf('--only') + 1].split(',').map((s) => s.trim())
       : null;
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    const prefix = manifest.style_prefix || '';
     const style = manifest.style_suffix || '';
     const jobs = manifest.assets
       .filter((a) => !only || only.includes(a.name))
@@ -100,7 +101,10 @@ async function main() {
         }
         return true;
       })
-      .map((a) => ({ ...a, fullPrompt: `${a.prompt}${style ? ', ' + style : ''}` }));
+      .map((a) => ({
+        ...a,
+        fullPrompt: `${prefix ? prefix + ' ' : ''}${a.prompt}${style ? ', ' + style : ''}`,
+      }));
 
     console.log(`generating ${jobs.length} assets, concurrency=${concurrency}`);
     let failed = 0;

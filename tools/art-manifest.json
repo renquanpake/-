@@ -1,6 +1,7 @@
 {
   "force": false,
-  "style_suffix": "high quality pixel art game asset, crisp 32x32 pixel grid upscaled, limited 24-color palette, Stardew Valley inspired, solid pure white background, centered composition, soft shading, no text, no watermark",
+  "style_prefix": "Flat solid uniform magenta color #FF00FF filling the entire canvas edge to edge as background. The background has absolutely no gradient, no vignette, no shadow, no texture, no scenery, just one single flat magenta color everywhere around the subject. Isolated sprite on plain flat chroma key magenta background.",
+  "style_suffix": "high quality pixel art game asset, crisp 32x32 pixel grid upscaled, limited 24-color palette, Stardew Valley inspired, centered composition, dark outline around subject, no text, no watermark",
   "assets": [
     { "name": "env-waterdrop-flower-s1", "prompt": "water treatment themed crop, stage 1 of 3 growth stages, tiny sprout with a single small blue water-drop shaped bud on dark soil mound", "out": "game/art/crops/env_waterdrop_flower_s1.png" },
     { "name": "env-waterdrop-flower-s2", "prompt": "water treatment themed crop, stage 2 of 3 growth stages, young plant with curved stems and two blue water-drop shaped buds, small leaves, dark soil mound", "out": "game/art/crops/env_waterdrop_flower_s2.png" },
