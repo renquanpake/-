@@ -1,45 +1,101 @@
 {
   "force": false,
+  "style_suffix": "high quality pixel art game asset, crisp 32x32 pixel grid upscaled, limited 24-color palette, Stardew Valley inspired, solid pure white background, centered composition, soft shading, no text, no watermark",
   "assets": [
-    {
-      "name": "crop-math-common-stage1",
-      "prompt": "pixel art game asset, tiny sprout seedling with a small golden plus-sign shaped leaf on dark soil mound, 32x32 pixel style, limited palette, stardew valley inspired, solid pure white background, centered, no text",
-      "out": "game/art/crops/math_common_stage1.png"
-    },
-    {
-      "name": "crop-math-common-stage2",
-      "prompt": "pixel art game asset, young green plant with two curved stems shaped like integral signs, small leaves, dark soil mound, 32x32 pixel style, limited palette, stardew valley inspired, solid pure white background, centered, no text",
-      "out": "game/art/crops/math_common_stage2.png"
-    },
-    {
-      "name": "crop-math-common-stage3",
-      "prompt": "pixel art game asset, mature glowing plant bearing a single golden number 7 shaped fruit, lush leaves, dark soil mound, 32x32 pixel style, limited palette, stardew valley inspired, solid pure white background, centered, no text",
-      "out": "game/art/crops/math_common_stage3.png"
-    },
-    {
-      "name": "crop-math-rare-mature",
-      "prompt": "pixel art game asset, rare mature plant bearing a glowing purple sigma symbol fruit with sparkles, lush leaves, dark soil mound, 32x32 pixel style, limited palette, stardew valley inspired, solid pure white background, centered, no text",
-      "out": "game/art/crops/math_rare_mature.png"
-    },
-    {
-      "name": "ui-fruit",
-      "prompt": "pixel art game icon, golden knowledge fruit with a small sprout on top, subtle sparkle, 32x32 pixel style, limited palette, stardew valley inspired, solid pure white background, centered, no text",
-      "out": "game/art/ui/fruit.png"
-    },
-    {
-      "name": "ui-seed",
-      "prompt": "pixel art game icon, small paper seed packet with a tiny sprout emblem, brown and green palette, 32x32 pixel style, stardew valley inspired, solid pure white background, centered, no text",
-      "out": "game/art/ui/seed.png"
-    },
-    {
-      "name": "ui-fertilizer",
-      "prompt": "pixel art game icon, green fertilizer bag with leaf symbol, 32x32 pixel style, limited palette, stardew valley inspired, solid pure white background, centered, no text",
-      "out": "game/art/ui/fertilizer.png"
-    },
-    {
-      "name": "ui-rescue",
-      "prompt": "pixel art game icon, small red potion bottle with heart symbol, glossy highlight, 32x32 pixel style, limited palette, stardew valley inspired, solid pure white background, centered, no text",
-      "out": "game/art/ui/rescue.png"
-    }
+    { "name": "env-waterdrop-flower-s1", "prompt": "water treatment themed crop, stage 1 of 3 growth stages, tiny sprout with a single small blue water-drop shaped bud on dark soil mound", "out": "game/art/crops/env_waterdrop_flower_s1.png" },
+    { "name": "env-waterdrop-flower-s2", "prompt": "water treatment themed crop, stage 2 of 3 growth stages, young plant with curved stems and two blue water-drop shaped buds, small leaves, dark soil mound", "out": "game/art/crops/env_waterdrop_flower_s2.png" },
+    { "name": "env-waterdrop-flower-s3", "prompt": "water treatment themed crop, stage 3 of 3 growth stages, mature plant blooming with one large glowing blue crystal water-drop flower, lush leaves, dark soil mound", "out": "game/art/crops/env_waterdrop_flower_s3.png" },
+
+    { "name": "env-filter-fern-s1", "prompt": "water filtration themed crop, stage 1 of 3 growth stages, tiny fern sprout with layered small fronds on dark soil mound", "out": "game/art/crops/env_filter_fern_s1.png" },
+    { "name": "env-filter-fern-s2", "prompt": "water filtration themed crop, stage 2 of 3 growth stages, young fern with multiple layered green fronds resembling a sand filter profile, dark soil mound", "out": "game/art/crops/env_filter_fern_s2.png" },
+    { "name": "env-filter-fern-s3", "prompt": "water filtration themed crop, stage 3 of 3 growth stages, mature lush fern with glowing cyan tips on fronds resembling clean filtered water, dark soil mound", "out": "game/art/crops/env_filter_fern_s3.png" },
+
+    { "name": "env-aeration-algae-s1", "prompt": "aeration themed crop, stage 1 of 3 growth stages, tiny strand of bright green spiral algae in a small water puddle on soil", "out": "game/art/crops/env_aeration_algae_s1.png" },
+    { "name": "env-aeration-algae-s2", "prompt": "aeration themed crop, stage 2 of 3 growth stages, young algae cluster with small oxygen bubbles rising, in a shallow water puddle on soil", "out": "game/art/crops/env_aeration_algae_s2.png" },
+    { "name": "env-aeration-algae-s3", "prompt": "aeration themed crop, stage 3 of 3 growth stages, mature vibrant algae bloom with many sparkling oxygen bubbles and tiny air bubbles floating above, shallow water puddle on soil", "out": "game/art/crops/env_aeration_algae_s3.png" },
+
+    { "name": "env-sediment-crystal-s1", "prompt": "sedimentation themed crop, stage 1 of 3 growth stages, tiny pale amber crystal shard sprouting from dark soil mound with a few sand grains", "out": "game/art/crops/env_sediment_crystal_s1.png" },
+    { "name": "env-sediment-crystal-s2", "prompt": "sedimentation themed crop, stage 2 of 3 growth stages, young cluster of amber crystal shards layered like settling particles, dark soil mound", "out": "game/art/crops/env_sediment_crystal_s2.png" },
+    { "name": "env-sediment-crystal-s3", "prompt": "sedimentation themed crop, stage 3 of 3 growth stages, mature crystal cluster with large glowing amber crystals arranged in clear layers like a sedimentation tank, dark soil mound", "out": "game/art/crops/env_sediment_crystal_s3.png" },
+
+    { "name": "env-membrane-vine-s1", "prompt": "membrane filtration themed crop, stage 1 of 3 growth stages, tiny vine sprout with thin thread-like tendrils on a small trellis stick, dark soil mound", "out": "game/art/crops/env_membrane_vine_s1.png" },
+    { "name": "env-membrane-vine-s2", "prompt": "membrane filtration themed crop, stage 2 of 3 growth stages, young vine with many fine parallel thread-like tendrils climbing a small trellis like membrane fibers, dark soil mound", "out": "game/art/crops/env_membrane_vine_s2.png" },
+    { "name": "env-membrane-vine-s3", "prompt": "membrane filtration themed crop, stage 3 of 3 growth stages, mature vine fully covering a trellis with fine glowing fiber strands and small dew drops, dark soil mound", "out": "game/art/crops/env_membrane_vine_s3.png" },
+
+    { "name": "env-sludge-sprite-s1", "prompt": "activated sludge microbe themed crop, stage 1 of 3 growth stages, tiny round brown fuzzball creature with two small eyes sprouting from dark soil mound", "out": "game/art/crops/env_sludge_sprite_s1.png" },
+    { "name": "env-sludge-sprite-s2", "prompt": "activated sludge microbe themed crop, stage 2 of 3 growth stages, young brown fuzzball creature with tiny cilia hairs and two friendly eyes, slightly larger, dark soil mound", "out": "game/art/crops/env_sludge_sprite_s2.png" },
+    { "name": "env-sludge-sprite-s3", "prompt": "activated sludge microbe themed crop, stage 3 of 3 growth stages, mature fluffy brown fuzzball creature with happy face, cilia crown and tiny sparkles, dark soil mound", "out": "game/art/crops/env_sludge_sprite_s3.png" },
+
+    { "name": "env-nitrify-bloom-s1", "prompt": "nitrification themed crop, stage 1 of 3 growth stages, tiny sprout with one small pale-yellow bud on dark soil mound", "out": "game/art/crops/env_nitrify_bloom_s1.png" },
+    { "name": "env-nitrify-bloom-s2", "prompt": "nitrification themed crop, stage 2 of 3 growth stages, young plant with two pale-yellow flower buds and green leaves, dark soil mound", "out": "game/art/crops/env_nitrify_bloom_s2.png" },
+    { "name": "env-nitrify-bloom-s3", "prompt": "nitrification themed crop, stage 3 of 3 growth stages, mature plant with two full blooming pale-yellow nitrogen-cycle flowers with tiny N symbol shaped petals, dark soil mound", "out": "game/art/crops/env_nitrify_bloom_s3.png" },
+
+    { "name": "env-biofilm-moss-s1", "prompt": "biofilm themed crop, stage 1 of 3 growth stages, tiny patch of bright green moss with a few pebbles on dark soil mound", "out": "game/art/crops/env_biofilm_moss_s1.png" },
+    { "name": "env-biofilm-moss-s2", "prompt": "biofilm themed crop, stage 2 of 3 growth stages, young layered green moss carpet growing over small stones with dew drops, dark soil mound", "out": "game/art/crops/env_biofilm_moss_s2.png" },
+    { "name": "env-biofilm-moss-s3", "prompt": "biofilm themed crop, stage 3 of 3 growth stages, mature thick layered moss mound with glowing green biofilm layers and dew sparkles over stones, dark soil mound", "out": "game/art/crops/env_biofilm_moss_s3.png" },
+
+    { "name": "env-oxygen-tree-s1", "prompt": "oxygen producing tree crop, stage 1 of 3 growth stages, tiny sapling with three small round leaves on dark soil mound", "out": "game/art/crops/env_oxygen_tree_s1.png" },
+    { "name": "env-oxygen-tree-s2", "prompt": "oxygen producing tree crop, stage 2 of 3 growth stages, young tree with small round canopy and tiny oxygen bubbles around leaves, dark soil mound", "out": "game/art/crops/env_oxygen_tree_s2.png" },
+    { "name": "env-oxygen-tree-s3", "prompt": "oxygen producing tree crop, stage 3 of 3 growth stages, mature tree with lush round glowing teal canopy releasing sparkling oxygen bubbles, dark soil mound", "out": "game/art/crops/env_oxygen_tree_s3.png" },
+
+    { "name": "math-epic-pi-tree", "prompt": "math challenge trophy plant, mature tree bearing a single glowing pink pi symbol fruit with sparkles, lush green canopy, dark soil mound", "out": "game/art/crops/math_epic_pi_tree.png" },
+    { "name": "math-legendary-medal-plant", "prompt": "math challenge trophy plant, mature plant bearing a large glowing golden medal on a stem with radiant light rays and sparkles, dark soil mound", "out": "game/art/crops/math_legendary_medal_plant.png" },
+
+    { "name": "ui-streak-flame", "prompt": "game UI icon, orange streak flame with inner glow representing daily login streak", "out": "game/art/ui/streak_flame.png" },
+    { "name": "ui-gift-box", "prompt": "game UI icon, red gift box with yellow ribbon bow, slightly open lid with sparkles", "out": "game/art/ui/gift_box.png" },
+    { "name": "ui-book-notes", "prompt": "game UI icon, closed brown notebook with green sprout bookmark", "out": "game/art/ui/book_notes.png" },
+    { "name": "ui-wrong-book", "prompt": "game UI icon, red-covered notebook with a small x mark on cover", "out": "game/art/ui/wrong_book.png" },
+    { "name": "ui-chart-stats", "prompt": "game UI icon, small bar chart with three ascending bars and an upward arrow", "out": "game/art/ui/chart_stats.png" },
+    { "name": "ui-gear-settings", "prompt": "game UI icon, gray gear cog settings symbol", "out": "game/art/ui/gear_settings.png" },
+    { "name": "ui-trophy", "prompt": "game UI icon, golden trophy cup with shine highlight", "out": "game/art/ui/trophy.png" },
+    { "name": "ui-star-gold", "prompt": "game UI icon, single golden five-pointed star with shine", "out": "game/art/ui/star_gold.png" },
+    { "name": "ui-star-gray", "prompt": "game UI icon, single gray hollow five-pointed star outline", "out": "game/art/ui/star_gray.png" },
+    { "name": "ui-water-drop", "prompt": "game UI icon, single blue water droplet with shine highlight", "out": "game/art/ui/water_drop.png" },
+    { "name": "ui-withered-mark", "prompt": "game UI icon, wilted gray-brown drooping plant symbol with small warning glow", "out": "game/art/ui/withered_mark.png" },
+    { "name": "ui-sparkle-harvest", "prompt": "game UI icon, yellow harvest sparkle burst with radiating star rays", "out": "game/art/ui/sparkle_harvest.png" },
+    { "name": "ui-check-green", "prompt": "game UI icon, bold green checkmark with subtle glow", "out": "game/art/ui/check_green.png" },
+    { "name": "ui-cross-red", "prompt": "game UI icon, bold red cross x mark with subtle glow", "out": "game/art/ui/cross_red.png" },
+    { "name": "ui-lock", "prompt": "game UI icon, gray padlock with keyhole", "out": "game/art/ui/lock.png" },
+    { "name": "ui-fruit", "prompt": "golden knowledge fruit with a small sprout on top, subtle sparkle", "out": "game/art/ui/fruit.png" },
+    { "name": "ui-seed", "prompt": "small paper seed packet with a tiny sprout emblem, brown and green palette", "out": "game/art/ui/seed.png" },
+    { "name": "ui-fertilizer", "prompt": "green fertilizer bag with leaf symbol", "out": "game/art/ui/fertilizer.png" },
+    { "name": "ui-rescue", "prompt": "small red potion bottle with heart symbol, glossy highlight", "out": "game/art/ui/rescue.png" },
+
+    { "name": "tile-soil-dry", "prompt": "seamless tileable farm game ground tile, dry brown soil texture with subtle pebbles, top-down view", "out": "game/art/tiles/soil_dry.png" },
+    { "name": "tile-soil-watered", "prompt": "seamless tileable farm game ground tile, dark wet soil texture with subtle shine, top-down view", "out": "game/art/tiles/soil_watered.png" },
+    { "name": "tile-grass", "prompt": "seamless tileable farm game ground tile, light green grass texture with tiny blade details, top-down view", "out": "game/art/tiles/grass.png" },
+    { "name": "tile-path-stone", "prompt": "seamless tileable farm game ground tile, gray cobblestone path texture, top-down view", "out": "game/art/tiles/path_stone.png" },
+    { "name": "tile-fence-wood", "prompt": "farm game wooden fence segment, side view, horizontal rails and two posts", "out": "game/art/tiles/fence_wood.png" },
+    { "name": "tile-water-pond", "prompt": "seamless tileable farm game water tile, blue pond water surface with subtle wave highlights, top-down view", "out": "game/art/tiles/water_pond.png" },
+
+    { "name": "bld-house-small", "prompt": "farm game building, cozy small wooden cottage with red roof, chimney and window, front view", "out": "game/art/buildings/house_small.png" },
+    { "name": "bld-greenhouse", "prompt": "farm game building, small glass greenhouse with white frame and plants visible inside, front view", "out": "game/art/buildings/greenhouse.png" },
+    { "name": "bld-well", "prompt": "farm game prop, stone water well with wooden roof and bucket on rope, front view", "out": "game/art/buildings/well.png" },
+    { "name": "bld-chest", "prompt": "farm game prop, wooden chest with metal bands, closed lid, front view", "out": "game/art/buildings/chest.png" },
+    { "name": "bld-signpost", "prompt": "farm game prop, wooden signpost with two arrow boards, front view", "out": "game/art/buildings/signpost.png" },
+    { "name": "bld-tree-round", "prompt": "farm game prop, round canopy green tree, front view", "out": "game/art/buildings/tree_round.png" },
+    { "name": "bld-tree-pine", "prompt": "farm game prop, triangular pine tree with layered needles, front view", "out": "game/art/buildings/tree_pine.png" },
+    { "name": "bld-flower-red", "prompt": "farm game decoration, small red flower with two leaves", "out": "game/art/buildings/flower_red.png" },
+    { "name": "bld-flower-yellow", "prompt": "farm game decoration, small yellow flower with two leaves", "out": "game/art/buildings/flower_yellow.png" },
+    { "name": "bld-flower-purple", "prompt": "farm game decoration, small purple flower with two leaves", "out": "game/art/buildings/flower_purple.png" },
+    { "name": "bld-bench", "prompt": "farm game prop, small wooden bench with backrest, front view", "out": "game/art/buildings/bench.png" },
+    { "name": "bld-scarecrow", "prompt": "farm game prop, friendly scarecrow with straw hat and patched shirt on wooden pole, front view", "out": "game/art/buildings/scarecrow.png" },
+
+    { "name": "quiz-answer-card", "prompt": "game UI panel, rounded rectangle answer option card frame with soft border, empty inside", "out": "game/art/quiz/answer_card.png" },
+    { "name": "quiz-burst-correct", "prompt": "game UI effect, green burst explosion with checkmark shaped rays and sparkles", "out": "game/art/quiz/burst_correct.png" },
+    { "name": "quiz-burst-wrong", "prompt": "game UI effect, red burst explosion with x shaped rays and small cracks", "out": "game/art/quiz/burst_wrong.png" },
+    { "name": "quiz-combo-star", "prompt": "game UI effect, golden combo critical hit star with radiating rays and sparkles", "out": "game/art/quiz/combo_star.png" },
+    { "name": "quiz-answer-folded", "prompt": "game UI card, closed folded paper answer card with a small question mark seal", "out": "game/art/quiz/answer_folded.png" },
+    { "name": "quiz-arrow-expand", "prompt": "game UI icon, downward chevron expand arrow inside a small circle button", "out": "game/art/quiz/arrow_expand.png" },
+
+    { "name": "lvl-node-plain", "prompt": "game map node, circular wooden level button with subtle border, empty center", "out": "game/art/challenge/lvl_node_plain.png" },
+    { "name": "lvl-node-boss", "prompt": "game map node, larger dark wooden level button with golden trim and small skull emblem, slightly menacing", "out": "game/art/challenge/lvl_node_boss.png" },
+    { "name": "lvl-flag", "prompt": "game map prop, checkpoint flag on pole, triangular red flag", "out": "game/art/challenge/lvl_flag.png" },
+    { "name": "lvl-medal-bronze", "prompt": "game medal icon, bronze circle medal with ribbon and a single star embossed", "out": "game/art/challenge/medal_bronze.png" },
+    { "name": "lvl-medal-silver", "prompt": "game medal icon, silver circle medal with ribbon and two stars embossed", "out": "game/art/challenge/medal_silver.png" },
+    { "name": "lvl-medal-gold", "prompt": "game medal icon, gold circle medal with ribbon and three stars embossed, glowing", "out": "game/art/challenge/medal_gold.png" },
+
+    { "name": "char-farmer-front", "prompt": "game character portrait, friendly young farmer with straw hat, overalls and green shirt, standing idle facing viewer, full body", "out": "game/art/character/farmer_front.png" },
+    { "name": "char-farmer-back", "prompt": "game character portrait, friendly young farmer with straw hat, overalls and green shirt, standing idle facing away from viewer, full body, back view", "out": "game/art/character/farmer_back.png" }
   ]
 }
