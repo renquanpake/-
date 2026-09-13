@@ -23,6 +23,8 @@ This file records user instructions, preferences, and teachings for reference in
   - 美术：免费像素素材包为主体 + AI 生图补充；生图 key 由用户提供后放 `game/.env`（gitignore），占位符进 `.env.example`
   - 题库来源：仓库根目录 4 份 PDF（高数下笔记、750题、环境工程原理、环境工程学），全量转换为 JSON，构建前必须过 validate 脚本
   - 本仓库实际为公开仓库（用户以为是私密的），任何 key/凭据严禁提交进仓库
+  - 生图 API：OpenAI 兼容端点 https://api.agnes-ai.cn/v1，模型 agnes-image-2.5-flash / agnes-image-2.1-flash，key 在 game/.env（gitignore），生成脚本 tools/gen-art.mjs，批量清单 tools/art-manifest.json
+  - 生图风格基线：32x32 像素风、限定调色板、星露谷味、纯白背景（后续抠底处理），参考 game/art/ 已产出资产
 
 [User Instruction Summary]
 - Date: 2026-09-13
