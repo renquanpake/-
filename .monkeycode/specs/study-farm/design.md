@@ -1,7 +1,7 @@
 # 学田 (Study Farm) 技术设计
 
 Feature Name: study-farm
-Updated: 2026-09-13 (rev2)
+Updated: 2026-09-13 (rev3)
 需求文档: 同目录 requirements.md
 
 ## Description
@@ -247,21 +247,22 @@ study/
 
 规划书即任务书：以下为全部待执行工作，任何一项开工前先重读本文档。
 
-### T1 美术资产生成（未完成部分）
+### T1 美术资产生成（完成）
 
-- 现状：manifest 80 项中 60 项已生成于 `game/art/`（纯白底），20 项待生成（crops 9、tiles 5、buildings 3、challenge 1、character 2）。
-- 执行：`node tools/gen-art.mjs --manifest tools/art-manifest.json --concurrency 4`（幂等，已存在自动跳过），预计 5 分钟。
-- 新资产改用品红幕模板（见 T2 实测结论），旧白底资产保留、后处理时自动识别。
-- 校验：全部 80 项存在且为有效 PNG（magic bytes 89504e4e）。
-- 遗留：`game/art/crops.bak/` 为 rev1 首批 8 张备份，T3 完成后可清理。
+- [x] 80 项资产全部生成于 `game/art/`（含 rev1 旧 60 张 + 本轮白底重做 20 张）。
+- 说明：曾用品红幕方案（p1 测试 90.7% 纯度），但批量生成后实测 AI 只在画布边缘渲染品红，主体背景仍为深色/白色，品红键控失效。已回退为白底模板（manifest style_prefix 已更新），20 张重新生成。
+- 校验：80 项全部为有效 PNG。
 
-### T2 美术后处理脚本 `tools/post-art.mjs`（未开始）
+### T2 美术后处理脚本 `tools/post-art.py`（完成）
 
-- API 能力结论（2026-09-13 实测）：该生图队列拒绝 `background` 与 `output_format` 参数（HTTP 400），**无法直出真透明 PNG**。
-- **色幕提示词实验结论**：底色描述放句首 + 精确色号 + 强调 flat/uniform + 显式禁止 gradient/vignette/shadow/texture 后，品红幕可控——边框均色 (254,24,241)，目标色占比 90.7%（同提示词弱写法仅 0%）；绿幕最平（σ5.7）但与绿色主体融合（63.8%）弃用。**胜出模板已固化到 art-manifest.json 的 style_prefix。**
-- **定案：品红键控优先，白键兜底**——post-art 按边框均色自动识别每张图的幕色（品红/白），从四角 flood-fill 移除与边界连通的幕色区域（RGB 距离容差 ~15% 可配），主体内部同色像素因不连通而保留；品红幕资产做 despill（边缘品红色相像素向邻色收敛），深色描边进一步降低串色风险。
-- 降采样至 256×256、alpha 边缘 1px 收缩去边、透明边紧凑裁剪、输出到 `game/art/final/`（保持子目录结构）。
-- 校验：输出 PNG 必须含 alpha 通道，四角像素 alpha==0，主体像素占比报告（异常小主体报警）。
+- API 能力结论（2026-09-13 实测）：生图队列不支持 `background` / `output_format` 参数（HTTP 400），无法直出透明 PNG。
+- 抠图方案：Pillow + numpy 实现，`tools/post-art.py`。
+  - 自动识别幕色（品红/白），品红容差 40、白容差 25。
+  - 从四边 flood-fill 移除与边界连通的幕色像素（主体内部同色像素因不连通而保留）。
+  - 品红幕资产做 despill（边缘品红相像素收敛）。
+  - 紧凑裁剪（留 2px 边距），LANCZOS 降采样至最大边 256。
+- 校验：`game/art/final/` 80 张全部 RGBA，四角透明，主体占比 19%~97%，无内部误透明像素。
+- 用法：`python3 tools/post-art.py`（输出到 `game/art/final/`），`--dry-run` 只报告不写文件。
 
 ### T3 题库转换管线（未开始）
 
