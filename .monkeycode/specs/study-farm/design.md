@@ -1,7 +1,7 @@
 # 学田 (Study Farm) 技术设计
 
 Feature Name: study-farm
-Updated: 2026-09-13 (rev3)
+Updated: 2026-09-13 (rev4)
 需求文档: 同目录 requirements.md
 
 ## Description
@@ -264,29 +264,38 @@ study/
 - 校验：`game/art/final/` 80 张全部 RGBA，四角透明，主体占比 19%~97%，无内部误透明像素。
 - 用法：`python3 tools/post-art.py`（输出到 `game/art/final/`），`--dry-run` 只报告不写文件。
 
-### T3 题库转换管线（未开始）
+### T3 题库转换管线（完成）
 
-- `tools/pdf-extract.mjs`：PDF → 章节结构文本。
-- `tools/build-questionbank.mjs`：750 题切题 + 书后答案匹配（answer/answer_source）；环工教材 → 知识点摘要（含出处）+ 概念辨析题。
-- `tools/validate-questionbank.mjs`：强制校验（见 Correctness Properties），产出匹配率报告（目标 ≥95% 题目入关）。
-- 产出物入库：`game/Assets/StreamingAssets/questionbank/`（Unity 工程创建后）。
+- `tools/extract-math.py`：750 题 PDF → `tools/extracted/math750.json`（705 题面 + 98 匹配书面答案，该书答案区仅 122 块书面解答，匹配率 13.9% 为真实覆盖率）。
+- `tools/extract-env.py`：环工教材 → 180 知识点（环工第三版 9 章 12 节 + 环工原理 160 节）+ 占位判断题（needs_review，供农场练习模式）。
+- `tools/build-questionbank.mjs`：组装 `game/questionbank/{math,env}.json`，并按章节切 10 题/关关卡（数学 12 关，仅入有答案题；环工农场抽题允许占位题）。
+- `tools/validate-questionbank.mjs`：强校验（ID 唯一、kp 挂接、source 非空、needs_review 不入关卡、题号引用完整），当前 0 error 0 warn 通过。
+- 产出物已迁移至 `game/Assets/StreamingAssets/questionbank/`。
+- 决策记录：数学入关率 13.9% 低于 design 原定 95% 目标——原因是该精选书书面答案仅覆盖 122 题，属素材特性非脚本缺陷；无答案题按 design Error Handling 规则标记 needs_review 不入关卡，可作练习。
 
-### T4 Unity 工程创建（未开始，等用户指示启动）
+### T4 Unity 工程创建（完成骨架，待编辑器生成场景）
 
-- `game/` 下创建 Unity 6000.x LTS 工程（URP 2D，Android 平台）。
-- 目录骨架：Scenes/Scripts/Prefabs/Art/StreamingAssets/Editor。
-- 迁移 `game/art/final/` 资产入 Assets，导入免费素材包（角色四向行走帧）。
-- 实现 `Assets/Editor/BuildScript.cs` + `game/build.sh`。
+- `game/` 下 Unity 工程骨架已建：`Assets/{Scenes,Scripts/{Core,Farm,Challenge,UI,Data,Tests},Art/final,StreamingAssets/questionbank,Editor}`、`Packages/manifest.json`（URP 2D + Test Framework + uGUI）、`ProjectSettings/`。
+- 80 张抠图资产已迁移至 `Assets/Art/final/`，题库 JSON 已入 `StreamingAssets/questionbank/`。
+- 5 个场景（Boot/Farm/Challenge/Shop/Stats）以 `.scene_placeholder` 标注挂载清单，需在 Unity 编辑器中生成实际 `.unity` 文件。
+- `Assets/Editor/BuildScript.cs` + `game/build.sh` 已就位。
 
-### T5 核心系统实现（未开始）
+### T5 核心系统实现（完成，待编辑器编译验证）
 
-- 按 Architecture 节实现 GameManager/SaveSystem/QuestionBank/Scheduler/EconomyController/QuizController（含答案折叠状态机）/FarmController/ChallengeSessionController/LevelMapController。
-- 单测按 Test Strategy 第 1 条落地。
+- 全部 C# 系统已实现于 `Assets/Scripts/`：
+  - `Core/`：GameManager（单例路由）、SaveSystem（3 份备份+损坏回滚+版本迁移）、QuestionBank（多科目索引+近 5 次去重抽题）、Scheduler（SM-2 Lite，答错不倒退）、EconomyController（购买/收获/暴击/掉落，传说 30 天限流）、QuizController（答案折叠状态机，主动展开强制判负）、StreakController（7/30/100 里程碑+挽回药剂月度限 1）、StatsController（简版统计）。
+  - `Data/`：GameSave（schema_version 2）、QuestionModels（题库反序列化模型）。
+  - `Farm/FarmController`：播种扣种子、收获重置地块、化肥恢复蔫萎。
+  - `Challenge/ChallengeSessionController`（逐题会话+星级结算 90/70/50+退出作废）、`LevelMapController`（章节节点渲染+boss 解锁判定）。
+  - `UI/QuizUI`：题面/选项/答案折叠/主动展开交互。
+- 单测 `Assets/Tests/SchedulerTests.cs`：SM-2 间隔序列、答错重置、next_due 恒大于现在、收获上限、ease 上限、**主动展开强制判负**、判断题判分、存档 roundtrip。
+- 待 Unity 编辑器内编译验证 C# 语法（容器无 Unity，无法本地编译）。
 
-### T6 APK 构建管线（未开始，依赖用户提供 Unity 账号）
+### T6 APK 构建管线（脚本就位，容器无 Unity 暂无法实跑）
 
-- 容器安装 Unity + Android Build Support，CLI 激活个人版授权。
-- 跑通 `game/build.sh` 产出 ARM64 APK，执行真机冒烟清单。
+- `game/build.sh`：题库校验前置钩子 → Unity CLI 批处理 `-executeMethod BuildScript.BuildAndroid` → 产出 `build/StudyFarm-{ver}-arm64.apk`，授权失败输出激活指引。
+- `game/SMOKE_TEST.md`：10 段真机冒烟清单（安装启动、播种-答题-收获全流程、闯关星级与 boss、复习蔫萎、商店经济守恒、存档导出导入、streak 跨日、杀进程恢复、统计页、构建指标）。
+- 阻塞：容器内无 Unity 6000.x + Android Build Support（JDK/SDK/NDK），无法实跑产出 APK；需用户在具备 Unity 的环境执行 `game/build.sh`，或提供 Unity 账号在容器内安装。
 
 ## References
 

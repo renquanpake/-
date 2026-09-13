@@ -1,0 +1,7 @@
+%YAML 1.1
+---
+AndroidBundleVersionCode: 1
+AndroidMinSdkVersion: 24
+AndroidTargetSdkVersion: 35
+Il2cppCompilerWrapperForArmv7Libraries:
+Il2cppCompilerWrapperForX86Libraries: 
