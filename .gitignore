@@ -1,0 +1,14 @@
+# env
+node_modules/
+*.log
+
+# game secrets - never commit
+game/.env
+
+# game build outputs
+game/build/
+game/Library/
+game/Temp/
+game/Logs/
+game/obj/
+game/UserSettings/

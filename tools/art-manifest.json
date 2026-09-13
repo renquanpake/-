@@ -1,0 +1,45 @@
+{
+  "force": false,
+  "assets": [
+    {
+      "name": "crop-math-common-stage1",
+      "prompt": "pixel art game asset, tiny sprout seedling with a small golden plus-sign shaped leaf on dark soil mound, 32x32 pixel style, limited palette, stardew valley inspired, solid pure white background, centered, no text",
+      "out": "game/art/crops/math_common_stage1.png"
+    },
+    {
+      "name": "crop-math-common-stage2",
+      "prompt": "pixel art game asset, young green plant with two curved stems shaped like integral signs, small leaves, dark soil mound, 32x32 pixel style, limited palette, stardew valley inspired, solid pure white background, centered, no text",
+      "out": "game/art/crops/math_common_stage2.png"
+    },
+    {
+      "name": "crop-math-common-stage3",
+      "prompt": "pixel art game asset, mature glowing plant bearing a single golden number 7 shaped fruit, lush leaves, dark soil mound, 32x32 pixel style, limited palette, stardew valley inspired, solid pure white background, centered, no text",
+      "out": "game/art/crops/math_common_stage3.png"
+    },
+    {
+      "name": "crop-math-rare-mature",
+      "prompt": "pixel art game asset, rare mature plant bearing a glowing purple sigma symbol fruit with sparkles, lush leaves, dark soil mound, 32x32 pixel style, limited palette, stardew valley inspired, solid pure white background, centered, no text",
+      "out": "game/art/crops/math_rare_mature.png"
+    },
+    {
+      "name": "ui-fruit",
+      "prompt": "pixel art game icon, golden knowledge fruit with a small sprout on top, subtle sparkle, 32x32 pixel style, limited palette, stardew valley inspired, solid pure white background, centered, no text",
+      "out": "game/art/ui/fruit.png"
+    },
+    {
+      "name": "ui-seed",
+      "prompt": "pixel art game icon, small paper seed packet with a tiny sprout emblem, brown and green palette, 32x32 pixel style, stardew valley inspired, solid pure white background, centered, no text",
+      "out": "game/art/ui/seed.png"
+    },
+    {
+      "name": "ui-fertilizer",
+      "prompt": "pixel art game icon, green fertilizer bag with leaf symbol, 32x32 pixel style, limited palette, stardew valley inspired, solid pure white background, centered, no text",
+      "out": "game/art/ui/fertilizer.png"
+    },
+    {
+      "name": "ui-rescue",
+      "prompt": "pixel art game icon, small red potion bottle with heart symbol, glossy highlight, 32x32 pixel style, limited palette, stardew valley inspired, solid pure white background, centered, no text",
+      "out": "game/art/ui/rescue.png"
+    }
+  ]
+}
