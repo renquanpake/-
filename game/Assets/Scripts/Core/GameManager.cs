@@ -33,6 +33,9 @@ namespace StudyFarm.Core
 
             Save = saveSystem.Load();
             questionBank.Init(Save);
+            // 把题库单例绑定给闯关会话静态桥
+            var session = StudyFarm.Challenge.ChallengeSessionControllerStatic.GetOrCreate(quiz, economy);
+            session.BindBank(questionBank);
             scheduler.Init(Save);
             economy.Init(Save);
             farm.Init(Save);

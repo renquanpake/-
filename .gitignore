@@ -4,6 +4,9 @@ node_modules/
 
 # game secrets - never commit
 game/.env
+.env
+*.lic
+unity3d.lic
 
 # game build outputs
 game/build/

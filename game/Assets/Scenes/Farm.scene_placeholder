@@ -1,4 +1,0 @@
-# Unity 场景 Farm
-# 在 Unity 编辑器中创建：File > New Scene，保存为 Assets/Scenes/Farm.unity
-# 挂载对应 Controller：
-  - FarmController + FarmScene 网格 + ShopUI 入口

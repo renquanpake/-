@@ -44,6 +44,8 @@ namespace StudyFarm.Challenge
                 quiz.Present(QuestionBankStatic.Get(lv.questionIds[0]));
         }
 
+        public void BindBank(QuestionBank bank) => QuestionBankStatic.Bind(bank);
+
         // 提交当前题
         public ChallengeAnswer Submit(int? choice, GameSave save)
         {

@@ -1,4 +1,0 @@
-# Unity 场景 Boot
-# 在 Unity 编辑器中创建：File > New Scene，保存为 Assets/Scenes/Boot.unity
-# 挂载对应 Controller：
-  - GameManager（DontDestroyOnLoad）+ 引导逻辑

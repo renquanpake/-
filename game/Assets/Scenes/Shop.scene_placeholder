@@ -1,4 +1,0 @@
-# Unity 场景 Shop
-# 在 Unity 编辑器中创建：File > New Scene，保存为 Assets/Scenes/Shop.unity
-# 挂载对应 Controller：
-  - ShopUI + EconomyController

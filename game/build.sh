@@ -1,29 +1,38 @@
-# 学田 Study Farm — Android 构建脚本
-# 依赖：Unity Hub + Unity 6000.x LTS (Linux) + Android Build Support (JDK/SDK/NDK)
+# 学田 Study Farm — Android 本地构建脚本
+# 在你本机已装好 Unity 6000.x LTS + Android Build Support 后执行
 set -euo pipefail
+
+# 切到仓库根（build.sh 在 game/ 下，仓库根在上一级）
 cd "$(dirname "$0")/.."
 
-# 定位 Unity 编辑器（用户配置 UNITY_EDITOR 环境变量或默认路径）
+# Unity 编辑器路径：用环境变量覆盖，默认给常见安装位置
 UNITY_EDITOR="${UNITY_EDITOR:-/opt/unity6000/Editor/Unity}"
-VER="$(grep -m1 '^version' ProjectSettings/ProjectVersion.txt | awk '{print $2}')"
+
+# 版本：从 ProjectVersion.txt 读 m_EditorVersion 的 major.minor
+VER="$(grep -m1 'm_EditorVersion' ProjectSettings/ProjectVersion.txt 2>/dev/null | sed 's/.*"m_EditorVersion": *"//;s/".*//' || echo 'local')"
 
 echo "==> 构建前置：校验题库"
 node tools/validate-questionbank.mjs
 echo "==> 题库校验通过"
 
-echo "==> 激活 Unity 授权（个人版，需 Unity 账号）"
-# 失败时走手动激活文件：$UNITY_LICENSE（.lic 文件路径）
-export UNITY_LICENSE="${UNITY_LICENSE:-}"
+echo "==> 检查 Unity 编辑器: $UNITY_EDITOR"
+if [[ ! -x "$UNITY_EDITOR" ]]; then
+  echo "未找到可执行 Unity 编辑器。设置 UNITY_EDITOR 环境变量指向你的 Unity 6000.x LTS 路径。"
+  echo "Linux 示例: export UNITY_EDITOR=~/Unity/Editor/Unity"
+  exit 1
+fi
 
-echo "==> 批处理构建 ARM64 APK"
+echo "==> 批处理构建 ARM64 APK（版本 ${VER}）"
+cd game
 "$UNITY_EDITOR" -batchmode -nographics -quit \
   -projectPath . \
   -executeMethod StudyFarm.Editor.BuildScript.BuildAndroid
 
-APK="build/StudyFarm-$(grep -m1 '^version' ProjectSettings/ProjectVersion.txt | awk '{print $2}')-arm64.apk"
+APK="build/StudyFarm-${VER}-arm64.apk"
 if [[ -f "$APK" ]]; then
-  echo "==> APK 产出: $APK ($(du -h "$APK" | cut -f1))"
+  echo "==> APK 产出: $(cd .. && pwd)/game/$APK"
+  du -h "$APK"
 else
-  echo "构建失败：未找到 $APK。检查 Unity 日志与授权状态。"
+  echo "构建失败：未找到 $APK。检查 Unity 日志（Editor.log）与授权状态。"
   exit 1
 fi

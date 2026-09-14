@@ -69,9 +69,11 @@ namespace StudyFarm.Challenge
                 var levels = bank.GetLevels(lv.id.Substring(0, lv.id.LastIndexOf('.')));
                 if (!IsBossUnlocked(levels[0].id, levels)) return false;
             }
-            var session = GameManager.I ? null : null; // 简化：实际由场景控制器调用
-            ChallengeSessionControllerStatic.Start(lv, save);
-            GameManager.I.GoToScene(GameScene.Challenge);
+            var quiz = Core.GameManager.I?.Quiz;
+            var econ = Core.GameManager.I?.Econ;
+            var session = ChallengeSessionControllerStatic.GetOrCreate(quiz, econ);
+            session.Start(lv, save);
+            Core.GameManager.I.GoToScene(GameScene.Challenge);
             return true;
         }
     }
