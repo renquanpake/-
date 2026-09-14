@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using StudyFarm.Data;
+using StudyFarm.Core;
 
 namespace StudyFarm.Challenge
 {
@@ -40,6 +41,7 @@ namespace StudyFarm.Challenge
             correct = 0;
             aborted = false;
             IsActive = true;
+            if (quiz != null) quiz.Context = "challenge";
             if (lv.questionIds.Count > 0)
                 quiz.Present(QuestionBankStatic.Get(lv.questionIds[0]));
         }
@@ -70,6 +72,9 @@ namespace StudyFarm.Challenge
 
             if (cleared)
             {
+                int oldStars = save.levels.TryGetValue(level.id, out var progOld) ? progOld.stars : 0;
+                bool firstClear = oldStars == 0;
+
                 if (!save.levels.TryGetValue(level.id, out var prog))
                     save.levels[level.id] = new LevelProgress();
                 else
@@ -77,14 +82,48 @@ namespace StudyFarm.Challenge
                 prog.stars = Math.Max(prog.stars, stars);
                 prog.bestRate = Math.Max(prog.bestRate, rate);
                 prog.cleared = true;
-                // 首通奖励
-                econ.GrantLevelReward(save, level.reward);
+
+                // 首通奖励（R11.7）
+                if (firstClear)
+                    econ.GrantLevelReward(save, level.reward);
+                // 星级提升补差奖励（R11.7）
+                else
+                    econ.GrantLevelUpgrade(save, stars - oldStars);
+
+                // 通关随机掉落（R8.1）
+                econ.RandomDrop(save);
+
+                // 章末宝箱：本章全部关卡（含 boss）3 星 → 发宝箱一次（R11.9）
+                if (AllChapterThreeStars(save))
+                {
+                    string chapId = level.id.Substring(0, level.id.LastIndexOf('.'));
+                    if (!save.chapterChests.Contains(chapId))
+                    {
+                        save.chapterChests.Add(chapId);
+                        econ.GrantChapterChest(save);
+                    }
+                }
             }
 
             LastResult = new LevelResult { stars = stars, rate = rate, correct = correct, total = total, cleared = cleared };
             IsActive = false;
             quiz.Init();
             return LastResult;
+        }
+
+        // 本章全部关卡（含 boss）达 3 星
+        bool AllChapterThreeStars(GameSave save)
+        {
+            if (level == null) return false;
+            string chapId = level.id.Substring(0, level.id.LastIndexOf('.'));
+            var levels = QuestionBankStatic.GetLevels(chapId);
+            if (levels.Count == 0) return false;
+            foreach (var lv in levels)
+            {
+                if (!save.levels.TryGetValue(lv.id, out var p) || p.stars < 3)
+                    return false;
+            }
+            return true;
         }
 
         // 退出：整关作废（R11.8）
@@ -105,5 +144,7 @@ namespace StudyFarm.Challenge
         static QuestionBank bank;
         public static void Bind(QuestionBank b) { bank = b; }
         public static Question Get(string id) => bank?.GetQuestion(id);
+        public static List<Level> GetLevels(string chapterId) =>
+            bank?.GetLevels(chapterId) ?? new List<Level>();
     }
 }

@@ -8,6 +8,9 @@ namespace StudyFarm.Core
 {
     public class StreakController
     {
+        const int DailySigninFruit = 5;
+        const long RescueWindowSeconds = 48 * 3600;
+
         // 学习行为（浇水/闯关）完成后调用
         public void OnActive(GameSave save)
         {
@@ -16,11 +19,15 @@ namespace StudyFarm.Core
 
             string yesterday = DateTime.Now.AddDays(-1).ToString("yyyy-MM-dd");
             if (save.streak.lastActiveDate == yesterday)
+            {
                 save.streak.current++;
+            }
             else if (!string.IsNullOrEmpty(save.streak.lastActiveDate))
             {
-                // 断档（超 1 天）→ 清零（R7.2）；48h 内可用挽回药剂
-                save.streak.current = 0;
+                // 断档（超 1 天）→ 记录清零时间与清零前值，清零后今天算新的第 1 天（R7.2）
+                save.streak.preZeroStreak = save.streak.current;
+                save.streak.zeroedAtUnix = DateTimeOffset.Now.ToUnixTimeSeconds();
+                save.streak.current = 1;
             }
             else
             {
@@ -29,28 +36,47 @@ namespace StudyFarm.Core
             save.streak.lastActiveDate = today;
             save.streak.best = Math.Max(save.streak.best, save.streak.current);
 
-            // 里程碑奖励（R7.4）
-            if (save.streak.current is 7 or 30 or 100)
+            // 当日签到奖励（R7.1）
+            save.fruit += DailySigninFruit;
+
+            // 里程碑奖励（R7.4，分级）
+            switch (save.streak.current)
             {
-                save.fruit += 50;
+                case 7:
+                    save.fruit += 30;
+                    break;
+                case 30:
+                    save.fruit += 100;
+                    save.inventory["rare_seed"] = save.inventory.GetValueOrDefault("rare_seed") + 1;
+                    break;
+                case 100:
+                    save.fruit += 300;
+                    save.inventory["legendary_deco"] = save.inventory.GetValueOrDefault("legendary_deco") + 1;
+                    break;
             }
         }
 
-        // 挽回药剂：清零后 48h 内恢复，每月限 1 次（R7.3）
+        // 挽回药剂：清零后 48h 内恢复清零前 streak，每月限 1 次（R7.3）
         public bool UseRescue(GameSave save)
         {
-            if (save.streak.current == 0 && !save.streak.rescueUsedThisMonth
-                && save.streak.best > 0)
-            {
-                // 简化：恢复到 best 前一日
-                save.streak.current = Math.Max(1, save.streak.best - 1);
-                save.streak.rescueUsedThisMonth = true;
-                save.streak.rescueMonth = DateTime.Now.ToString("yyyy-MM");
-                if (!save.inventory.ContainsKey("potion") || save.inventory["potion"] < 1) return false;
-                save.inventory["potion"]--;
-                return true;
-            }
-            return false;
+            string curMonth = DateTime.Now.ToString("yyyy-MM");
+            if (save.streak.rescueMonth == curMonth) return false; // 本月已用过
+
+            if (!save.inventory.TryGetValue("potion", out int have) || have < 1) return false;
+
+            long now = DateTimeOffset.Now.ToUnixTimeSeconds();
+            bool inWindow = save.streak.zeroedAtUnix > 0 && now - save.streak.zeroedAtUnix <= RescueWindowSeconds;
+            if (!inWindow) return false;
+            if (save.streak.preZeroStreak < 1) return false;
+
+            save.inventory["potion"] = have - 1;
+            save.streak.current = save.streak.preZeroStreak;
+            save.streak.best = Math.Max(save.streak.best, save.streak.current);
+            save.streak.rescueMonth = curMonth;
+            save.streak.rescueUsedThisMonth = true;
+            save.streak.zeroedAtUnix = 0;
+            save.streak.preZeroStreak = 0;
+            return true;
         }
     }
 }

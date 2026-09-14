@@ -36,10 +36,31 @@ namespace StudyFarm.UI
         {
             stemText.text = q.stem;
             var opts = q.options ?? new System.Collections.Generic.List<string>();
-            optionA.text = opts.Count > 0 ? "A. " + opts[0] : "";
-            optionB.text = opts.Count > 1 ? "B. " + opts[1] : "";
-            optionC.text = opts.Count > 2 ? "C. " + opts[2] : "";
-            optionD.text = opts.Count > 3 ? "D. " + opts[3] : "";
+
+            bool selfEval = Core.QuizController.IsSelfEvalStatic(q);
+            if (selfEval)
+            {
+                // 计算/证明/填空自评模式（v1 无机器判分）
+                optionA.text = "A. 我已独立做对";
+                optionB.text = "B. 未做对（对照答案学习）";
+                optionC.text = "";
+                optionD.text = "";
+                optionBtnA.gameObject.SetActive(true);
+                optionBtnB.gameObject.SetActive(true);
+                optionBtnC.gameObject.SetActive(false);
+                optionBtnD.gameObject.SetActive(false);
+            }
+            else
+            {
+                optionA.text = opts.Count > 0 ? "A. " + opts[0] : "";
+                optionB.text = opts.Count > 1 ? "B. " + opts[1] : "";
+                optionC.text = opts.Count > 2 ? "C. " + opts[2] : "";
+                optionD.text = opts.Count > 3 ? "D. " + opts[3] : "";
+                optionBtnA.gameObject.SetActive(true);
+                optionBtnB.gameObject.SetActive(true);
+                optionBtnC.gameObject.SetActive(opts.Count > 2);
+                optionBtnD.gameObject.SetActive(opts.Count > 3);
+            }
 
             revealBtn.gameObject.SetActive(true);
             nextBtn.gameObject.SetActive(false);
@@ -84,8 +105,10 @@ namespace StudyFarm.UI
         {
             var s = new System.Text.StringBuilder();
             s.AppendLine("答案：").Append(r.answerText ?? "（无书面答案，待校对）");
-            if (!string.IsNullOrEmpty(r.answerSource?.page))
-                s.AppendLine("\n出处：").Append(r.answerSource.book).Append(" ").Append(r.answerSource.page);
+            if (!string.IsNullOrWhiteSpace(r.explanation))
+                s.Append("\n解析：").Append(r.explanation);
+            if (r.answerSource != null && !string.IsNullOrEmpty(r.answerSource.page))
+                s.Append("\n出处：").Append(r.answerSource.book).Append(' ').Append(r.answerSource.page);
             return s.ToString();
         }
     }

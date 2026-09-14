@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // build-questionbank.mjs — 组装 tools/extracted/*.json 为最终题库，输出到
-// game/Assets/StreamingAssets/questionbank/（Unity 工程创建前输出到 game/questionbank/）
+// game/Assets/StreamingAssets/questionbank/（Unity JsonUtility 按 C# 属性名匹配，
+// 所有键必须为 camelCase，与 C# 模型 QuestionModels.cs 一一对应）
 // 用法：node tools/build-questionbank.mjs
 // 前置：python3 tools/extract-math.py && python3 tools/extract-env.py
 
@@ -40,7 +41,7 @@ function buildMath() {
     questions.push({
       id,
       num: q.num,
-      kp_id: `${chap.id}.kp01`,
+      kpId: `${chap.id}.kp01`,
       type: q.type === 'single' ? 'single' : q.type === 'proof' ? 'blank' : 'calc',
       stem: q.stem,
       options: q.type === 'single' ? [] : [],
@@ -48,15 +49,15 @@ function buildMath() {
       explanation: hasAns ? '' : '',
       difficulty: q.difficulty,
       source: { book: BOOK, chapter: chap.name, page: '', no: q.num },
-      answer_source: hasAns ? { book: BOOK, page: '答案区', no: q.num } : null,
-      needs_review: !hasAns,
+      answerSource: hasAns ? { book: BOOK, page: '答案区', no: q.num } : null,
+      needsReview: !hasAns,
     });
   }
 
   // 关卡：每章 10 题/关，只用 needs_review=false 的题（有答案的入关）
   for (const chap of chapters) {
     const inChap = questions.filter((q) => q.num >= chap.from && q.num <= chap.to);
-    const playable = inChap.filter((q) => !q.needs_review);
+    const playable = inChap.filter((q) => !q.needsReview);
     const groups = [];
     for (let i = 0; i < playable.length; i += 10) {
       groups.push(playable.slice(i, i + 10));
@@ -67,21 +68,21 @@ function buildMath() {
       chap.levels.push({
         id: `${chap.id}.lv${String(i + 1).padStart(2, '0')}`,
         name: isBoss ? 'Boss关' : `第${i + 1}关`,
-        question_ids: g.map((q) => q.id),
-        pass_rate: 0.5,
-        star3_rate: 0.9,
-        star2_rate: 0.7,
-        is_boss: isBoss,
-        first_clear_reward: { fruit: 30, seeds: 2 },
+        questionIds: g.map((q) => q.id),
+        passRate: 0.5,
+        star3Rate: 0.9,
+        star2Rate: 0.7,
+        isBoss: isBoss,
+        firstClearReward: { fruit: 30, seeds: 2 },
       });
     });
     // 知识点：每章 1 个代表 KP（挂全部该章题）
-    chap.knowledge_points = [
+    chap.knowledgePoints = [
       {
         id: `${chap.id}.kp01`,
         name: chap.name.replace(/^第.+章/, '').trim(),
         summary: `${chap.name} 核心考点，覆盖题号 ${chap.from}-${chap.to}。`,
-        crop_rarity: 'rare',
+        cropRarity: 'rare',
         source: { book: BOOK, chapter: chap.name, page: `P${chap.from}-P${chap.to}` },
       },
     ];
@@ -89,16 +90,16 @@ function buildMath() {
 
   return {
     subject: 'math',
-    subject_name: '高等数学',
+    subjectName: '高等数学',
     version: 1,
-    source_book: BOOK,
+    sourceBook: BOOK,
     chapters,
     questions,
     stats: {
-      total_questions: questions.length,
-      with_answer: questions.filter((q) => !q.needs_review).length,
-      needs_review: questions.filter((q) => q.needs_review).length,
-      total_levels: chapters.reduce((s, c) => s + c.levels.length, 0),
+      totalQuestions: questions.length,
+      withAnswer: questions.filter((q) => !q.needsReview).length,
+      needsReview: questions.filter((q) => q.needsReview).length,
+      totalLevels: chapters.reduce((s, c) => s + c.levels.length, 0),
     },
   };
 }
@@ -106,20 +107,20 @@ function buildMath() {
 // ---------- 环工 ----------
 function buildEnv() {
   const raw = loadJson(path.join(EXTRACTED, 'env.json'));
-  const sourceBook = raw.source_book;
+  const sourceBook = raw.source_book || raw.sourceBook;
   // 按 chapter 分组为两个科目田区（环工原理 / 环工第三版）
   const chapters = [
     {
       id: 'env.ch01',
       name: '环工第三版·水质与物理化学处理',
       levels: [],
-      knowledge_points: raw.knowledge_points
+      knowledgePoints: (raw.knowledge_points || raw.knowledgePoints || [])
         .filter((k) => k.id.startsWith('env.'))
         .map((k) => ({
           id: k.id,
           name: k.name,
           summary: k.summary,
-          crop_rarity: k.crop_rarity,
+          cropRarity: k.crop_rarity || k.cropRarity,
           source: k.source,
         })),
     },
@@ -127,34 +128,43 @@ function buildEnv() {
       id: 'env.ch02',
       name: '环工原理·单元操作',
       levels: [],
-      knowledge_points: raw.knowledge_points
+      knowledgePoints: (raw.knowledge_points || raw.knowledgePoints || [])
         .filter((k) => k.id.startsWith('envp.'))
         .map((k) => ({
           id: k.id,
           name: k.name,
           summary: k.summary,
-          crop_rarity: k.crop_rarity,
+          cropRarity: k.crop_rarity || k.cropRarity,
           source: k.source,
         })),
     },
   ];
 
-  const questions = raw.questions.map((q) => ({
-    ...q,
+  const questions = (raw.questions || []).map((q) => ({
+    id: q.id,
+    num: q.num,
+    kpId: q.kp_id || q.kpId,
+    type: q.type,
+    stem: q.stem,
+    options: q.options || [],
+    answer: q.answer ?? '',
+    explanation: q.explanation ?? '',
+    difficulty: q.difficulty ?? 1,
     source: q.source || { book: sourceBook },
-    answer_source: q.answer_source || q.source || { book: sourceBook },
+    answerSource: q.answer_source || q.answerSource || q.source || { book: sourceBook },
+    needsReview: q.needs_review ?? q.needsReview ?? true,
   }));
 
   return {
     subject: 'env',
-    subject_name: '环境工程',
+    subjectName: '环境工程',
     version: 1,
-    source_book: sourceBook,
+    sourceBook: sourceBook,
     chapters,
     questions,
     stats: {
-      total_kp: raw.knowledge_points.length,
-      total_questions: questions.length,
+      totalKp: (raw.knowledge_points || raw.knowledgePoints || []).length,
+      totalQuestions: questions.length,
       note: raw.note,
     },
   };
@@ -162,7 +172,7 @@ function buildEnv() {
 
 // ---------- 输出 ----------
 function main() {
-  const outDir = path.join(ROOT, 'game', 'questionbank');
+  const outDir = path.join(ROOT, 'game', 'Assets', 'StreamingAssets', 'questionbank');
   fs.mkdirSync(outDir, { recursive: true });
   const math = buildMath();
   const env = buildEnv();

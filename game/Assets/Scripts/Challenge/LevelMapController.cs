@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using StudyFarm.Data;
+using StudyFarm.Core;
 
 namespace StudyFarm.Challenge
 {
@@ -39,7 +40,7 @@ namespace StudyFarm.Challenge
                 var v = go.GetComponent<LevelNodeView>();
                 v.Init(lv, GetProgress(lv.id), IsBossUnlocked(chapterId, levels), lv.isBoss);
                 v.transform.localPosition = new Vector3(x, 0, 0);
-                v.onClick.AddListener(() => EnterLevel(lv));
+                v.onClick.AddListener(() => { EnterLevel(lv); });
                 nodes[lv.id] = v;
                 x += 120;
             }
@@ -84,7 +85,7 @@ namespace StudyFarm.Challenge
         [SerializeField] Text starText;
         [SerializeField] Image lockIcon;
         Level level;
-        public System.Action onClick;
+        public UnityEngine.Events.UnityEvent onClick;
 
         public void Init(Level lv, LevelProgress prog, bool bossUnlocked, bool isBoss)
         {
@@ -92,7 +93,7 @@ namespace StudyFarm.Challenge
             nameText.text = lv.name;
             starText.text = "★".Repeat(prog.stars) + "☆".Repeat(3 - prog.stars);
             bool locked = isBoss && !bossUnlocked;
-            if (lockIcon) lockIcon.gameObject.SetActive(locked);
+            if (lockIcon != null) lockIcon.gameObject.SetActive(locked);
         }
     }
 
@@ -101,7 +102,7 @@ namespace StudyFarm.Challenge
         static ChallengeSessionController session;
         public static ChallengeSessionController GetOrCreate(QuizController q, EconomyController e)
         {
-            session ??= new ChallengeSessionController(q, e);
+            if (session == null) session = new ChallengeSessionController(q, e);
             return session;
         }
         public static void Start(Level lv, GameSave s) => session?.Start(lv, s);

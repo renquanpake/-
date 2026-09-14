@@ -1,5 +1,6 @@
 // QuestionBank.cs — 题库加载与索引
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
@@ -12,6 +13,7 @@ namespace StudyFarm.Core
         public Dictionary<string, Question> Questions = new Dictionary<string, Question>();
         public Dictionary<string, KnowledgePoint> KnowledgePoints = new Dictionary<string, KnowledgePoint>();
         public Dictionary<string, List<Level>> LevelsByChapter = new Dictionary<string, List<Level>>();
+        public Dictionary<string, string> KpToChapter = new Dictionary<string, string>();
         public List<QuestionBankFile> Subjects = new List<QuestionBankFile>();
         readonly System.Random rng = new System.Random();
 
@@ -30,9 +32,9 @@ namespace StudyFarm.Core
                 try
                 {
                     string json = File.ReadAllText(file);
-                    var data = JsonUtility.FromJson<QuestionBankFile>(json);
-                    Subjects.Add(data);
-                    IndexSubject(data);
+                var data = JsonUtility.FromJson<QuestionBankFile>(json);
+                Subjects.Add(data);
+                IndexSubject(data);
                 }
                 catch (Exception e)
                 {
@@ -46,8 +48,6 @@ namespace StudyFarm.Core
         {
             foreach (var q in d.questions ?? new List<Question>())
             {
-                q.RawSrc = q.source;
-                q.RawAnsSrc = q.answerSource;
                 Questions[q.id] = q;
                 if (!string.IsNullOrEmpty(q.kpId))
                 {
@@ -62,10 +62,31 @@ namespace StudyFarm.Core
                 if (ch.knowledgePoints != null)
                 {
                     foreach (var kp in ch.knowledgePoints)
+                    {
                         KnowledgePoints[kp.id] = kp;
+                        KpToChapter[kp.id] = ch.id;
+                    }
                 }
             }
         }
+
+        // R1.4：启动校验 source 完整性，缺失清单进启动日志
+        public void LogSourceValidation()
+        {
+            var missing = new List<string>();
+            foreach (var q in Questions.Values)
+                if (q.source == null || !q.source.HasContent()) missing.Add("q " + q.id + " source 缺失");
+            foreach (var kp in KnowledgePoints.Values)
+                if (kp.source == null || !kp.source.HasContent()) missing.Add("kp " + kp.id + " source 缺失");
+            if (missing.Count > 0)
+            {
+                LoadErrors.Add("source 校验失败 " + missing.Count + " 项: " + string.Join("; ", missing.GetRange(0, Math.Min(20, missing.Count))));
+                Debug.LogWarning("QuestionBank source 校验缺失清单: " + LoadErrors[LoadErrors.Count - 1]);
+            }
+        }
+
+        public string GetChapterOfKp(string kpId) =>
+            KpToChapter.TryGetValue(kpId, out var c) ? c : null;
 
         // 农场抽题：kpId 题目池随机，排除近5次已用
         public Question DrawQuestion(string kpId, GameSave save)
@@ -83,12 +104,13 @@ namespace StudyFarm.Core
             if (pool.Count == 0) return null;
 
             List<string> recent = save.recentDraws != null && save.recentDraws.TryGetValue(kpId, out var r) ? r : null;
+            // 近5次去重：优先从未用过的题中抽；全用过才从近5次外随机
             Question pick = null;
-            for (int tries = 0; tries < 10; tries++)
-            {
+            var unused = pool.Where(q => recent == null || !recent.Contains(q.id)).ToList();
+            if (unused.Count > 0)
+                pick = unused[rng.Next(unused.Count)];
+            else
                 pick = pool[rng.Next(pool.Count)];
-                if (recent == null || !recent.Contains(pick.id)) break;
-            }
             if (save.recentDraws == null) save.recentDraws = new Dictionary<string, List<string>>();
             if (!save.recentDraws.ContainsKey(kpId)) save.recentDraws[kpId] = new List<string>();
             var list = save.recentDraws[kpId];
@@ -113,5 +135,6 @@ namespace StudyFarm.Core
         Question GetQuestion(string id);
         List<Level> GetLevels(string chapterId);
         KnowledgePoint GetMeta(string kpId);
+        string GetChapterOfKp(string kpId);
     }
 }

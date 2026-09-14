@@ -1,7 +1,7 @@
 # 学田 (Study Farm) 技术设计
 
 Feature Name: study-farm
-Updated: 2026-09-13 (rev4)
+Updated: 2026-09-14 (rev5: 补完 T5 核心系统 + 编译验证 + 题库 camelCase 管线 + schema v3)
 需求文档: 同目录 requirements.md
 
 ## Description
@@ -139,29 +139,40 @@ interface ISaveSystem {
       "explanation": "...",
       "difficulty": 2,
       "source": { "book": "高等数学下册精选750题", "page": "P123", "no": 15 },
-      "answer_source": { "book": "高等数学下册精选750题", "page": "P312", "no": 15 },
-      "needs_review": false
+      "answerSource": { "book": "高等数学下册精选750题", "page": "P312", "no": 15 },
+      "needsReview": false
     }
   ]
 }
 ```
 
-- `source`：题面出处；`answer_source`：书后答案页出处（750 题答案在书后，需匹配）。
+- 键名约定：**camelCase**（与 C# 模型属性名一致，Unity JsonUtility 按属性名匹配，snake_case 会导致字段全空——2026-09-14 修复，见 T7）。
+- `source`：题面出处；`answerSource`：书后答案页出处（750 题答案在书后，需匹配）。
 - 环工知识点 source 用教材页码/小节；summary 卡片（播种卡/复习卡）必须渲染出处。
-- type 枚举：single / multi / judge / blank。difficulty 1-3。
+- type 枚举：single / multi / judge / blank / calc / proof。difficulty 1-3。
+  calc/blank/proof 为文本题，v1 无机器判分，答题界面走「对照折叠答案自评」模式。
 
 ### 存档 JSON（persistentDataPath/save.json）
 
-rev1 基础上新增：
+schema_version 3（2026-09-14 升级，从 v2 自动迁移）：
 
 ```json
 {
-  "schema_version": 2,
-  "challenge": {
-    "levels": { "math.ch07.lv01": { "stars": 3, "best_rate": 0.95, "cleared": true } },
-    "chapter_chests": ["math.ch01"]
-  },
-  "reveal_log": { "math.q0001": { "count": 2, "last": "2026-09-13" } }
+  "schemaVersion": 3,
+  "crops": [ { "kpId": "env.kp001", "growth": 3, "interval": 3, "ease": 2.3, "nextDue": 1750000000, "state": "growing" } ],
+  "inventory": { "seed_common": 5, "fertilizer": 2, "potion": 0, "rare_seed": 1 },
+  "fruit": 120,
+  "streak": { "current": 7, "best": 12, "lastActiveDate": "2026-09-13",
+              "rescueMonth": "2026-09", "zeroedAtUnix": 0, "preZeroStreak": 0 },
+  "levels": { "math.ch08.lv01": { "stars": 3, "bestRate": 0.95, "cleared": true } },
+  "chapterChests": ["math.ch08"],
+  "revealLog": { "math.q0001": { "count": 2, "last": "2026-09-13" } },
+  "mastered": [ "env.kp001" ],
+  "recentDraws": { "env.kp001": [ "env.q0001" ] },
+  "envAnswers": 40, "envCorrect": 33,
+  "chapterStats": { "math.ch08": { "total": 20, "correct": 17 } },
+  "dailyAnswers": { "2026-09-13": 9 },
+  "lastLegendaryDropUnix": 0
 }
 ```
 
@@ -289,7 +300,58 @@ study/
   - `Challenge/ChallengeSessionController`（逐题会话+星级结算 90/70/50+退出作废）、`LevelMapController`（章节节点渲染+boss 解锁判定）。
   - `UI/QuizUI`：题面/选项/答案折叠/主动展开交互。
 - 单测 `Assets/Tests/SchedulerTests.cs`：SM-2 间隔序列、答错重置、next_due 恒大于现在、收获上限、ease 上限、**主动展开强制判负**、判断题判分、存档 roundtrip。
-- 待 Unity 编辑器内编译验证 C# 语法（容器无 Unity，无法本地编译）。
+- C# 语法已在容器内经 mcs + Unity API stub 全量编译验证（见 T7）；Unity 编辑器内的运行时验证（Inspector 拖引用、场景生成）仍需在用户环境完成。
+
+### T7 核心系统补完 + 编译验证（2026-09-14 完成）
+
+对照任务书逐项复查 T5 遗留缺口，补齐实现并建立容器内可重复的编译/逻辑验证管线：
+
+**题库管线（阻断性 bug）**
+- 题库 JSON 原为 snake_case 键（`kp_id`/`needs_review`/`question_ids`…），Unity JsonUtility 按 C# 属性名匹配，snake_case 键**全部解析为空** → 闯关关卡无题、农场抽题 kpId 索引失效。
+- 修复：`tools/build-questionbank.mjs` 输出改 camelCase 且直接写 `game/Assets/StreamingAssets/questionbank/`；`tools/validate-questionbank.mjs` 同步改键并改读 StreamingAssets；重新生成 math.json（705 题/12 关）与 env.json（180 KP/180 判断题）。
+- 旧目录 `game/questionbank/` 标 DEPRECATED（保留文件不删，避免破坏历史引用），README 说明弃用原因。
+
+**GameSave schema v2 → v3**（`Data/GameSave.cs`）
+- 新增：`envAnswers/envCorrect`（环工答题日志）、`chapterStats`（math 各章 total/correct）、`dailyAnswers`（近 7 天柱状图数据源）、`lastLegendaryDropUnix`（传说 30 天限流）、`streak.zeroedAtUnix/preZeroStreak`（挽回药剂 48h 窗口与清零前值）。
+- `SaveSystem.Migrate` 加 v2→v3 分支；备份按 LastWriteTime 排序；同秒多份备份加序号后缀。
+
+**StreakController（R7）修复**
+- `UseRescue` 原逻辑先置 `rescueUsedThisMonth` 再查药剂库存（顺序 bug）；现按 药剂库存 → 月度锁定 → 48h 窗口 → 恢复 `preZeroStreak` 顺序执行。
+- 断档清零时记录 `zeroedAtUnix` 与 `preZeroStreak`，当天算新的第 1 天（原实现断档当天 current=0 且不发奖励）。
+- 里程碑分级：7 天 +30 果、30 天 +100 果 + 稀有种子、100 天 +300 果 + 传说装饰；每日首次学习行为发 +5 签到奖励（R7.1 原先未发）。
+
+**EconomyController（R8/R11.7/R11.9）修复**
+- `RandomDrop` 原注释承诺「30 天限」但无实现且掉落物不入库存；现按 `lastLegendaryDropUnix` 限流（限流期传说降级为稀有种子），掉落统一写 inventory，保证果实/道具总量守恒。
+- 新增 `GrantLevelUpgrade`（星级提升补差，每星 +20 果）、`GrantChapterChest`（章末宝箱 +60 果 +2 稀有种子）。
+
+**QuizController（R3.4/R3.3/R10/R11.5）补完**
+- 连对计数 + `OnCrit` 委托：连对 3 题触发暴击（GameManager 接线 `EconomyController.GrantCrit` + 存档）。
+- calc/blank/multi（文本题）自评模式：选项 0=独立做对、1=未做对（对照折叠答案学习）；主动展开仍强制判负（Correctness 7 不变）。
+- `OnAnswerSubmitted` 委托：每次提交记 dailyAnswers / envAnswers / chapterStats（经 `BankRef.GetChapterOfKp` 映射章节），GameManager 接线 streak + 存档（R9.1 行为粒度落盘）。
+- 答案面板补 explanation（R3.3 显示解析+出处）。
+
+**QuestionBank（R1.4/R2.1）**
+- 加载后建 `KpToChapter` 映射（统计页各章正确率依赖）；`LogSourceValidation` 在启动日志列出 source 缺失清单（构建期由 validate 强制阻断不变）。
+
+**StatsController（R10 全部落地）**
+- 环工答题数/正确率/蔫萎数走真实日志；数学各章正确率走 `chapterStats`；近 7 天柱状图走 `dailyAnswers`；`GetBankOverview` 提供各科目题数/章节数（R1.3 统计页展示）。
+
+**GameManager 接线**
+- 子系统未拖引用时自动 new（编辑器忘拖引用也能跑）；题库加载错误 WarnLog（R1.2）；启动时 `scheduler.MarkWithered`（R4.3）；暴击/签到/存档委托全部接线。
+
+**LevelMapController / ChallengeSessionController**
+- `LevelNodeView.onClick` 由 `System.Action`（AddListener 不可用）改为 `UnityEvent`；`lockIcon` 显式 null 判断。
+- 会话 `Start` 设 `quiz.Context="challenge"`；`Finish` 增加首通/星级提升奖励分支、通关随机掉落、章末宝箱一次性发放。
+
+**编译验证管线（容器内，可重复）**
+- 安装 `mono-mcs`；`/tmp/opencode/UnityStubs.cs` 提供最小 Unity/NUnit API stub（含反射版 JsonUtility，模拟 Unity 行为：公共字段序列化、数字→字符串强转、键名大小写不敏感）。
+- 命令（在 /tmp/opencode/stubbuild 下）：
+  `mcs -target:exe -r:unity-stubs.dll -out:test-runner.exe UnityStubs.cs TestRunner.cs <仓库> game/Assets/Scripts/**/*.cs game/Assets/Tests/*.cs && mono test-runner.exe`
+- 结果：34/34 逻辑单测全绿（含真实 StreamingAssets 题库加载回归、存档 v2→v3 迁移、损坏回滚、传说限流、streak 全场景、星级补差）。
+- 编译中发现并修复的既有 bug：`SaveSystem` 两处 `b.CompareOrdinal(a)`（string 无该实例方法，改按 LastWriteTime 排序）；`QuestionBank`/`LevelMapController` 缺 `using StudyFarm.Core` 导致跨命名空间类型不可见；`Source` 由 struct 改 class（null 语义）；`FarmController.slotIndex` 死代码删除。
+
+**T6 增量**
+- `game/build.sh` VER 读取路径修正为 `game/ProjectSettings/ProjectVersion.txt`（原在仓库根 grep 必失败 → 版本号恒为 local）。
 
 ### T6 APK 构建管线（脚本就位，容器无 Unity 暂无法实跑）
 

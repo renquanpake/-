@@ -8,8 +8,8 @@ cd "$(dirname "$0")/.."
 # Unity 编辑器路径：用环境变量覆盖，默认给常见安装位置
 UNITY_EDITOR="${UNITY_EDITOR:-/opt/unity6000/Editor/Unity}"
 
-# 版本：从 ProjectVersion.txt 读 m_EditorVersion 的 major.minor
-VER="$(grep -m1 'm_EditorVersion' ProjectSettings/ProjectVersion.txt 2>/dev/null | sed 's/.*"m_EditorVersion": *"//;s/".*//' || echo 'local')"
+# 版本：从 game/ProjectSettings/ProjectVersion.txt 读 m_EditorVersion 的 major.minor
+VER="$(grep -m1 'm_EditorVersion' game/ProjectSettings/ProjectVersion.txt 2>/dev/null | sed 's/.*"m_EditorVersion": *"//;s/".*//' || echo 'local')"
 
 echo "==> 构建前置：校验题库"
 node tools/validate-questionbank.mjs

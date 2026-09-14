@@ -66,24 +66,45 @@ namespace StudyFarm.Core
             save.inventory["seed_common"] = save.inventory.GetValueOrDefault("seed_common") + r.seeds;
         }
 
+        // 星级提升补差奖励（R11.7）：每提升 1 星 +20 果实
+        public void GrantLevelUpgrade(GameSave save, int starDiff)
+        {
+            if (starDiff > 0)
+                save.fruit += starDiff * 20;
+        }
+
+        // 章末宝箱奖励（R11.9）
+        public void GrantChapterChest(GameSave save)
+        {
+            save.fruit += 60;
+            save.inventory["rare_seed"] = save.inventory.GetValueOrDefault("rare_seed") + 2;
+        }
+
         // 暴击：连对 3 题 +1 果实
         public void GrantCrit(GameSave save)
         {
             save.fruit += 1;
         }
 
-        // 随机掉落（传说级全局 30 天限 1 次，Correctness Property 8）
+        // 随机掉落（R8）：传说级全局限流每 30 天 1 次，掉落写入 inventory
         public string RandomDrop(GameSave save)
         {
             var roll = UnityEngine.Random.value;
+            string drop = null;
             if (roll < 0.02)
             {
-                // 传说：检查 30 天限
-                return "legendary_seed";
+                long now = DateTimeOffset.Now.ToUnixTimeSeconds();
+                bool legendaryAllowed = save.lastLegendaryDropUnix == 0 ||
+                    now - save.lastLegendaryDropUnix >= 30 * 86400;
+                drop = legendaryAllowed ? "legendary_seed" : "rare_seed"; // 限流期降级
+                if (legendaryAllowed) save.lastLegendaryDropUnix = now;
             }
-            if (roll < 0.10) return "rare_seed";
-            if (roll < 0.25) return "decor";
-            return null;
+            else if (roll < 0.10) drop = "rare_seed";
+            else if (roll < 0.25) drop = "decor";
+
+            if (drop != null)
+                save.inventory[drop] = save.inventory.GetValueOrDefault(drop) + 1;
+            return drop;
         }
     }
 }

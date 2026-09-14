@@ -21,7 +21,6 @@ namespace StudyFarm.Core
 
     public class FarmController
     {
-        int slotIndex = 0;
         const int FieldSlots = 6; // v1 每区 6 块地
 
         public void Init(GameSave save) { }
@@ -49,14 +48,19 @@ namespace StudyFarm.Core
             return new PlantResult { ok = true, msg = "播种成功" };
         }
 
-        // 收获：growth==5 → 产出果实，重置地块
-        public HarvestResult Harvest(GameSave save, string kpId, string rarity)
+        // 收获：growth==5 → 产出果实，重置地块（果实与掉落在 Econ 结算）
+        public HarvestResult Harvest(GameSave save, string kpId, string rarity, EconomyController econ = null)
         {
             var c = save.crops.Find(x => x.kpId == kpId);
             if (c == null || c.growth < Scheduler.HarvestGrowth)
                 return new HarvestResult { ok = false, fruit = 0 };
             save.crops.Remove(c);
-            return new HarvestResult { ok = true, fruit = 0, rarity = rarity }; // 实际果实在 Econ 里加
+            if (econ != null)
+            {
+                econ.GrantHarvest(save, kpId, rarity);
+                econ.RandomDrop(save); // R8.1 收获随机掉落
+            }
+            return new HarvestResult { ok = true, fruit = econ != null ? econ.HarvestYield(rarity) : 0, rarity = rarity };
         }
 
         // 用化肥恢复蔫萎

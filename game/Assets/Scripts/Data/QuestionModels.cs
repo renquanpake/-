@@ -3,7 +3,8 @@ using System.Collections.Generic;
 
 namespace StudyFarm.Data
 {
-    public struct Source
+    [System.Serializable]
+    public class Source
     {
         public string book;
         public string chapter;
@@ -27,9 +28,6 @@ namespace StudyFarm.Data
         public Source source;
         public Source answerSource;
         public bool needsReview;
-
-        public Source RawSrc;
-        public Source RawAnsSrc;
     }
 
     public class KnowledgePoint
