@@ -30,7 +30,7 @@ cd game
 
 APK="build/StudyFarm-${VER}-arm64.apk"
 if [[ -f "$APK" ]]; then
-  echo "==> APK 产出: $(cd .. && pwd)/game/$APK"
+  echo "==> APK 产出: $(pwd)/$APK"
   du -h "$APK"
 else
   echo "构建失败：未找到 $APK。检查 Unity 日志（Editor.log）与授权状态。"

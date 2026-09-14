@@ -284,18 +284,21 @@ study/
 - 产出物已迁移至 `game/Assets/StreamingAssets/questionbank/`。
 - 决策记录：数学入关率 13.9% 低于 design 原定 95% 目标——原因是该精选书书面答案仅覆盖 122 题，属素材特性非脚本缺陷；无答案题按 design Error Handling 规则标记 needs_review 不入关卡，可作练习。
 
-### T4 Unity 工程创建（完成骨架，待编辑器生成场景）
+### T4 Unity 工程创建（完成；场景 + 脚本 .meta 已预生成并引用真实 guid）
 
 - `game/` 下 Unity 工程骨架已建：`Assets/{Scenes,Scripts/{Core,Farm,Challenge,UI,Data,Tests},Art/final,StreamingAssets/questionbank,Editor}`、`Packages/manifest.json`（URP 2D + Test Framework + uGUI）、`ProjectSettings/`。
-- 80 张抠图资产已迁移至 `Assets/Art/final/`，题库 JSON 已入 `StreamingAssets/questionbank/`。
-- 5 个场景（Boot/Farm/Challenge/Shop/Stats）以 `.scene_placeholder` 标注挂载清单，需在 Unity 编辑器中生成实际 `.unity` 文件。
+- 80 张抠图资产已迁移至 `Assets/Art/final/`，题库 JSON（camelCase，见 T7）已入 `StreamingAssets/questionbank/`。
+- 5 个场景（Boot/Farm/Challenge/Shop/Stats）由 `node tools/gen-scenes.mjs` 生成：
+  - 全部 17 个脚本 `.meta` 预生成（确定性 guid，重跑幂等；PNG 等资产 .meta 留给 Unity 首次导入生成）
+  - 场景 m_Script 引用 .meta 真实 guid，导入后控制器自动挂载（缺引用时在 LOCAL_BUILD 3.1 手动拖）
+  - 结构校验入口 `python3 tools/check-unity-yaml.py`（block/组件引用/guid 完整性，当前 0 error 0 warn）
 - `Assets/Editor/BuildScript.cs` + `game/build.sh` 已就位。
 
-### T5 核心系统实现（完成，待编辑器编译验证）
+### T5 核心系统实现（完成，容器内已编译验证 + 34 逻辑单测全绿）
 
 - 全部 C# 系统已实现于 `Assets/Scripts/`：
   - `Core/`：GameManager（单例路由）、SaveSystem（3 份备份+损坏回滚+版本迁移）、QuestionBank（多科目索引+近 5 次去重抽题）、Scheduler（SM-2 Lite，答错不倒退）、EconomyController（购买/收获/暴击/掉落，传说 30 天限流）、QuizController（答案折叠状态机，主动展开强制判负）、StreakController（7/30/100 里程碑+挽回药剂月度限 1）、StatsController（简版统计）。
-  - `Data/`：GameSave（schema_version 2）、QuestionModels（题库反序列化模型）。
+  - `Data/`：GameSave（schema_version 3，见 T7）、QuestionModels（题库反序列化模型，camelCase 键）。
   - `Farm/FarmController`：播种扣种子、收获重置地块、化肥恢复蔫萎。
   - `Challenge/ChallengeSessionController`（逐题会话+星级结算 90/70/50+退出作废）、`LevelMapController`（章节节点渲染+boss 解锁判定）。
   - `UI/QuizUI`：题面/选项/答案折叠/主动展开交互。
