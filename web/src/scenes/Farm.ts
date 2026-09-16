@@ -96,6 +96,25 @@ export class Farm extends Phaser.Scene {
       padding: { x: 8, y: 4 }
     }).setDepth(10).setInteractive({ useHandCursor: true }).on('pointerdown', () => this.useFertilizer())
 
+    // 导航
+    const nav = (x: number, label: string, scene: string) =>
+      this.add
+        .text(x, H - 64, label, {
+          fontFamily: 'sans-serif',
+          fontSize: '13px',
+          color: '#eaf5dc',
+          backgroundColor: '#243b22',
+          padding: { x: 12, y: 6 }
+        })
+        .setDepth(10)
+        .setInteractive({ useHandCursor: true })
+        .on('pointerdown', () => {
+          this.app.persist()
+          this.scene.start(scene)
+        })
+    nav(12, '🗺 闯关', 'Challenge')
+    nav(110, '📊 统计', 'Stats')
+
     this.refresh()
     void fertBtn
   }

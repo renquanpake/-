@@ -26,7 +26,15 @@ const ART = [
   'ui/check_green',
   'ui/cross_red',
   'ui/star_gold',
-  'ui/gift_box'
+  'ui/gift_box',
+  'challenge/lvl_node_plain',
+  'challenge/lvl_node_boss',
+  'challenge/lvl_flag',
+  'challenge/medal_gold',
+  'challenge/medal_silver',
+  'challenge/medal_bronze',
+  'ui/lock',
+  'buildings/chest'
 ]
 
 export class Boot extends Phaser.Scene {

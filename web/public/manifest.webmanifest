@@ -1,0 +1,12 @@
+{
+  "name": "学田 StudyFarm",
+  "short_name": "学田",
+  "start_url": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#10160d",
+  "theme_color": "#10160d",
+  "icons": [
+    { "src": "art/crops/math_epic_pi_tree.png", "sizes": "any", "type": "image/png" }
+  ]
+}

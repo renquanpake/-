@@ -5,6 +5,7 @@ import { Scheduler } from './core/Scheduler'
 import { EconomyController } from './core/EconomyController'
 import { FarmController } from './core/FarmController'
 import { QuizController } from './core/QuizController'
+import { ChallengeSessionController, QuestionBankStatic } from './core/ChallengeSessionController'
 import { StreakController } from './core/StreakController'
 import { StatsController } from './core/StatsController'
 import type { GameSave, QuestionBankFile } from './core/types'
@@ -16,9 +17,10 @@ export class App {
   econ: EconomyController
   farm: FarmController
   quiz: QuizController
+  session: ChallengeSessionController
   streak: StreakController
   stats: StatsController
-  private saveSys: SaveSystem
+  saveSys: SaveSystem
 
   constructor(banks: QuestionBankFile[]) {
     this.saveSys = new SaveSystem(new LocalStorageStorage())
@@ -29,6 +31,7 @@ export class App {
     this.econ = new EconomyController()
     this.farm = new FarmController()
     this.quiz = new QuizController()
+    this.session = new ChallengeSessionController(this.quiz, this.econ)
     this.streak = new StreakController()
     this.stats = new StatsController()
 
@@ -37,6 +40,10 @@ export class App {
     if (this.bank.LoadErrors.length > 0) {
       console.warn('题库加载警告:\n' + this.bank.LoadErrors.join('\n'))
     }
+
+    // 把题库单例绑定给闯关会话静态桥（对齐 C# GameManager.BindBank）
+    QuestionBankStatic.Bind(this.bank)
+    this.session.BindBank(this.bank)
 
     // 暴击 / 签到接线（对齐 GameManager）
     this.quiz.BankRef = this.bank
