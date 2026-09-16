@@ -17,6 +17,8 @@ export class Stats extends Phaser.Scene {
   }
 
   create() {
+    // 场景重入时清掉上一轮显示对象
+    (this.children as unknown as { removeAll(deep?: boolean): void }).removeAll(true)
     const save = this.app.save
     const c = this.add.container(0, 0).setDepth(10)
     c.add(this.add.rectangle(W / 2, H / 2, W, H, 0x10160d, 0.9))

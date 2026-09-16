@@ -27,4 +27,7 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   })
 }
 
+// 测试钩子：暴露 game 实例供自动化测试（playwright）定位 Phaser 交互对象
+;(window as unknown as { __farm?: { game: Phaser.Game } }).__farm = { game }
+
 export default game

@@ -3,6 +3,7 @@ import Phaser from 'phaser'
 import { App } from '../app'
 import type { CropState, Question, KnowledgePoint } from '../core/types'
 import { Scheduler } from '../core/Scheduler'
+import { breakMath, makeStem } from '../textutil'
 
 const W = 480
 const H = 920
@@ -10,7 +11,7 @@ const PLOT = 130
 const GAP = 18
 const COLS = 3
 const ORIGIN_X = (W - (COLS * PLOT + (COLS - 1) * GAP)) / 2
-const ORIGIN_Y = 170
+const ORIGIN_Y = 240
 
 interface PlotObj {
   soil: Phaser.GameObjects.Image
@@ -43,6 +44,12 @@ export class Farm extends Phaser.Scene {
   }
 
   create() {
+    // 场景重入（从闯关/统计返回）时清掉上一轮的显示对象与引用，防止迭代已销毁对象
+    (this.children as unknown as { removeAll(deep?: boolean): void }).removeAll(true)
+    this.plots = []
+    this.picker = null
+    this.quiz = null
+
     this.add.image(W / 2, H / 2, 'tiles/grass').setDisplaySize(W, H).setDepth(0)
 
     // 地块
@@ -140,7 +147,8 @@ export class Farm extends Phaser.Scene {
   }
 
   private isWithered(c: CropState): boolean {
-    return this.app.sched.IsWithered(c) && c.state === 'growing'
+    // 加载时 MarkWithered 已把时间判断落进 state，这里直接读存档状态
+    return c.state === 'withered'
   }
 
   private onPlot(i: number) {
@@ -232,7 +240,8 @@ export class Farm extends Phaser.Scene {
       }
       p.soil.setTexture('tiles/soil_watered')
       const meta = this.app.bank.GetMeta(crop.kpId)
-      p.label.setText((meta?.name ?? crop.kpId).slice(0, 12))
+      const name = meta?.name ?? crop.kpId
+      p.label.setText(name.length > 8 ? name.slice(0, 8) + '…' : name)
       const key = this.cropKey(crop)
       const src = this.textures.get(key).getSourceImage() as unknown as { width: number; height: number }
       const ch = 68
@@ -277,7 +286,7 @@ export class Farm extends Phaser.Scene {
     const c = this.add.container(0, 0).setDepth(20)
     c.add(this.add.rectangle(W / 2, H / 2, W, H, 0, 0.6).setScrollFactor(1))
     c.add(
-      this.add.rectangle(W / 2, H / 2 - 40, 420, 300, 0x1c2a16, 1)
+      this.add.rectangle(W / 2, H / 2 + 16, 420, 336, 0x1c2a16, 1).setOrigin(0.5)
     )
     c.add(this.add.text(W / 2, H / 2 - 140, '播种 · 选一个知识点', { fontSize: '16px', color: '#e8f0e0' }).setOrigin(0.5))
     c.add(this.add.text(W / 2, H / 2 - 118, `（还有 ${avail.length} 个可选，前 8 个）`, { fontSize: '11px', color: '#9fb48f' }).setOrigin(0.5))
@@ -310,7 +319,7 @@ export class Farm extends Phaser.Scene {
     })
 
     const close = this.add
-      .text(W / 2, H / 2 + 120, '×  关闭', { fontSize: '14px', color: '#ff9f9f', backgroundColor: '#241a1a', padding: { x: 10, y: 4 } })
+      .text(W / 2, H / 2 + 160, '×  关闭', { fontSize: '14px', color: '#ff9f9f', backgroundColor: '#241a1a', padding: { x: 10, y: 4 } })
       .setOrigin(0.5)
       .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => this.closePicker())
@@ -340,33 +349,44 @@ export class Farm extends Phaser.Scene {
 
     const c = this.add.container(0, 0).setDepth(30)
     c.add(this.add.rectangle(W / 2, H / 2, W, H, 0, 0.6))
+    const panel = this.add.rectangle(W / 2, H / 2, 434, 400, 0x1c2a16, 0.97)
+    c.add(panel)
 
     const isSelfEval = quiz.IsSelfEvalType(q)
-    const top = 56
+    const stem0 = makeStem(this, q.stem ? breakMath(q.stem) : '（无题干，直接作答）', {
+      x: W / 2,
+      y: 0,
+      width: 396,
+      maxH: 320
+    })
+    const actionH = isSelfEval ? 100 : q.options != null ? Math.min(q.options.length, 4) * 50 + 10 : 52
+    const contentH = 70 + stem0.height + 22 + actionH + 200
+    const panelH = Math.min(contentH, H - 72)
+    // 内容短则卡片垂直居中，长则顶到 56
+    const top = Math.max(56, Math.round((H - panelH) / 2))
+    stem0.destroy()
+
     let title = '浇水 · 答题'
     if (q.needsReview) title += '（练习题）'
-    c.add(this.add.text(W / 2, top, title, { fontSize: '15px', color: '#9fd67f' }).setOrigin(0.5, 0))
+    c.add(this.add.text(W / 2, top + 14, title, { fontSize: '17px', color: '#a8e08a' }).setOrigin(0.5, 0))
     c.add(
       this.add
-        .text(W / 2, top + 26, `${q.type} · 难度 ${q.difficulty}`, { fontSize: '11px', color: '#9fb48f' })
+        .text(W / 2, top + 44, `${q.type} · 难度 ${q.difficulty}`, { fontSize: '12px', color: '#9fb48f' })
         .setOrigin(0.5, 0)
     )
 
-    const stemTop = top + 52
-    const stem = this.add
-      .text(W / 2, stemTop, q.stem || '（无题干，直接作答）', {
-        fontSize: '13px',
-        color: '#e8f0e0',
-        align: 'left',
-        wordWrap: { width: 400, useAdvancedWrap: true }
-      })
-      .setOrigin(0.5, 0)
+    const stemTop = top + 70
+    const stem = makeStem(this, q.stem ? breakMath(q.stem) : '（无题干，直接作答）', {
+      x: W / 2,
+      y: stemTop,
+      width: 396,
+      maxH: 320
+    })
     c.add(stem)
 
-    const actionTop = stemTop + stem.height + 18
-    const actionH = isSelfEval ? 96 : q.options != null ? Math.min(q.options.length, 4) * 46 + 8 : 48
-    const panelH = Math.min(top + 52 + stem.height + 18 + actionH + 170, H - top - 16)
-    c.add(this.add.rectangle(W / 2, top + panelH / 2, 434, panelH, 0x1c2a16, 0.96))
+    const actionTop = stemTop + stem.height + 22
+    panel.setSize(434, panelH)
+    panel.setPosition(W / 2, top + panelH / 2)
 
     let answered = false
 
@@ -377,30 +397,30 @@ export class Farm extends Phaser.Scene {
       if (q.kpId) this.app.sched.OnAnswer(q.kpId, result.correct, save)
       this.app.persist()
 
-      const fbTop = actionTop + actionH + 16
+      const fbTop = actionTop + actionH + 14
       const burst = this.add
         .image(W / 2, fbTop, result.correct ? 'quiz/burst_correct' : 'quiz/burst_wrong')
-        .setDisplaySize(56, 56)
+        .setDisplaySize(52, 52)
         .setOrigin(0.5, 0)
         .setDepth(31)
       c.add(burst)
       let detail = result.correct ? '答对了，作物长大一格！' : '答错 / 查看了答案，间隔重置。'
       if (result.answerText != null && result.answerText !== '') detail += `\n答案：${result.answerText}`
       if (result.explanation != null && result.explanation !== '') detail += `\n解析：${result.explanation}`
-      const feedback = this.add
-        .text(W / 2, fbTop + 64, detail, {
-          fontSize: '13px',
-          color: '#ffd75e',
-          align: 'left',
-          wordWrap: { width: 380, useAdvancedWrap: true }
-        })
-        .setOrigin(0.5, 0)
-        .setDepth(31)
+      const feedback = makeStem(this, breakMath(detail), {
+        x: W / 2,
+        y: fbTop + 60,
+        width: 380,
+        maxH: 96,
+        fontSize: 14,
+        minFont: 12,
+        color: '#ffd75e'
+      })
       c.add(feedback)
 
       const btn = this.add
-        .text(W / 2, top + panelH - 44, '知道了', {
-          fontSize: '14px',
+        .text(W / 2, top + panelH - 40, '知道了', {
+          fontSize: '15px',
           color: '#eaf5dc',
           backgroundColor: '#2a4023',
           padding: { x: 14, y: 6 }
@@ -419,7 +439,7 @@ export class Farm extends Phaser.Scene {
     if (isSelfEval) {
       const yes = this.add
         .text(W / 2, actionTop, '我独立做对了 ✓', {
-          fontSize: '14px',
+          fontSize: '15px',
           color: '#bfe39a',
           backgroundColor: '#243b22',
           padding: { x: 12, y: 6 }
@@ -428,8 +448,8 @@ export class Farm extends Phaser.Scene {
         .setInteractive({ useHandCursor: true })
         .on('pointerdown', () => showResult(0))
       const no = this.add
-        .text(W / 2, actionTop + 46, '没做对，看答案学习', {
-          fontSize: '14px',
+        .text(W / 2, actionTop + 50, '没做对，看答案学习', {
+          fontSize: '15px',
           color: '#ff9f9f',
           backgroundColor: '#3b2424',
           padding: { x: 12, y: 6 }
@@ -441,12 +461,12 @@ export class Farm extends Phaser.Scene {
     } else if (q.options != null && q.options.length > 0) {
       q.options.slice(0, 4).forEach((opt, idx) => {
         const b = this.add
-          .text(24, actionTop + idx * 46, `${String.fromCharCode(65 + idx)}. ${opt}`, {
-            fontSize: '13px',
+          .text(24, actionTop + idx * 50, `${String.fromCharCode(65 + idx)}. ${breakMath(opt)}`, {
+            fontSize: '14px',
             color: '#eaf5dc',
             backgroundColor: '#243b22',
             padding: { x: 10, y: 6 },
-            wordWrap: { width: 380, useAdvancedWrap: true }
+            wordWrap: { width: 384, useAdvancedWrap: true }
           })
           .setOrigin(0, 0)
           .setInteractive({ useHandCursor: true })
@@ -456,7 +476,7 @@ export class Farm extends Phaser.Scene {
     } else {
       const b = this.add
         .text(W / 2, actionTop, '我独立做对了 ✓', {
-          fontSize: '14px',
+          fontSize: '15px',
           color: '#bfe39a',
           backgroundColor: '#243b22',
           padding: { x: 12, y: 6 }

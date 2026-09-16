@@ -4,6 +4,7 @@ import { App } from '../app'
 import { LevelMapController, LevelNodeModel } from '../core/LevelMapController'
 import type { Level } from '../core/types'
 import type { LevelResult } from '../core/ChallengeSessionController'
+import { breakMath, makeStem } from '../textutil'
 
 const W = 480
 const H = 920
@@ -29,6 +30,10 @@ export class Challenge extends Phaser.Scene {
   }
 
   create() {
+    // 场景重入时清掉上一轮显示对象，防止残留与重复
+    (this.children as unknown as { removeAll(deep?: boolean): void }).removeAll(true)
+    this.viewRoot = null
+    this.curLevel = null
     const save = this.app.save
     this.mapCtl.Init(this.app.bank, save)
     this.mapCtl.session = this.app.session
@@ -93,14 +98,13 @@ export class Challenge extends Phaser.Scene {
     this.chapterId = chapterId
     this.chapterName = chapterName
     const c = this.root()
-    this.title(c, `闯关 · ${chapterName}`, '章节', () => this.showChapters())
     const nodes = this.mapCtl.RenderChapter(chapterId, chapterName)
-    c.add(this.add.text(W / 2, 70, `章节 ${chapterName}（${nodes.length} 关）`, { fontSize: '14px', color: '#9fb48f' }).setOrigin(0.5, 0))
+    this.title(c, `${chapterName}（${nodes.length} 关）`, '章节', () => this.showChapters())
     nodes.forEach((node, i) => {
       const col = i % 2
       const row = Math.floor(i / 2)
       const cx = W / 2 - 110 + col * 220
-      const cy = 130 + row * 92
+      const cy = 160 + row * 140
       this.drawNode(c, cx, cy, i + 1, node, () => this.tryEnter(node))
     })
   }
@@ -116,7 +120,7 @@ export class Challenge extends Phaser.Scene {
     const isBoss = node.level.isBoss
     const nodeImg = this.add.image(cx, cy, isBoss ? 'challenge/lvl_node_boss' : 'challenge/lvl_node_plain').setDisplaySize(84, 84).setDepth(11)
     const label = this.add
-      .text(cx, cy + 52, `第${index}关 ${node.level.name}`.slice(0, 14), {
+      .text(cx, cy + 52, (node.level.name || `第${index}关`).slice(0, 14), {
         fontSize: '11px',
         color: node.locked ? '#6b7a5f' : '#dfe9d0',
         align: 'center',
@@ -178,20 +182,27 @@ export class Challenge extends Phaser.Scene {
     }
     const c = this.root()
     this.title(c, `闯关 ${this.curLevel.name}`, '放弃', () => this.abort())
+
+    // 卡片面板（先加矩形再放文字，避免盖住内容）
+    const top = 64
+    const panel = this.add.rectangle(W / 2, top + 240, 434, 480, 0x1c2a16, 0.97)
+    c.add(panel)
     c.add(
-      this.add.text(W / 2, 60, `第 ${this.answered + 1} / ${this.total()} 题`, {
-        fontSize: '13px',
-        color: '#9fd67f'
-      }).setOrigin(0.5, 0)
+      this.add
+        .text(W / 2, top + 8, `第 ${this.answered + 1} / ${this.total()} 题`, {
+          fontSize: '13px',
+          color: '#9fd67f'
+        })
+        .setOrigin(0.5, 0)
     )
-    const stem = this.add
-      .text(W / 2, 96, q.stem || '（无题干）', {
-        fontSize: '13px',
-        color: '#e8f0e0',
-        align: 'left',
-        wordWrap: { width: 400, useAdvancedWrap: true }
-      })
-      .setOrigin(0.5, 0)
+
+    const stemTop = top + 36
+    const stem = makeStem(this, q.stem ? breakMath(q.stem) : '（无题干）', {
+      x: W / 2,
+      y: stemTop,
+      width: 396,
+      maxH: 320
+    })
     c.add(stem)
 
     let revealed = false
@@ -203,89 +214,106 @@ export class Challenge extends Phaser.Scene {
       this.showPlayResult(r.correct, r.manualReveal, this.answered >= this.total())
     }
 
-    // 偷看答案（折叠展开，判负）
+    const actionTop = stemTop + stem.height + 18
+    const isSelfEval = this.app.quiz.IsSelfEvalType(q)
+    const optTop = actionTop + 44
+    const actionH = isSelfEval ? 100 : q.options != null ? Math.min(q.options.length, 4) * 50 + 10 : 52
+    const panelH = Math.min(top + 36 + stem.height + 18 + 44 + actionH + 80, H - top - 12)
+    panel.setSize(434, panelH)
+    panel.setPosition(W / 2, top + panelH / 2)
+
+    // 偷看答案（内联展开，不再盖题干）
     const peek = this.add
-      .text(
-        W / 2,
-        96 + stem.height + 16,
-        '👁 偷看答案（将判负）',
-        {
-          fontSize: '12px',
-          color: '#ffb86b',
-          backgroundColor: '#3a2f16',
-          padding: { x: 10, y: 4 }
-        }
-      )
+      .text(W / 2, actionTop, '👁 偷看答案（将判负）', {
+        fontSize: '12px',
+        color: '#ffb86b',
+        backgroundColor: '#3a2f16',
+        padding: { x: 10, y: 4 }
+      })
       .setOrigin(0.5, 0)
       .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => {
-        if (revealed) return
-        revealed = true
-        this.app.quiz.RevealAnswer()
-        const box = this.add.container(0, 0).setDepth(40)
-        box.add(this.add.rectangle(W / 2, 260, 430, 130, 0x1c2a16, 1))
-        const ans = this.add
-          .text(W / 2 - 205, 220, `答案：${q.answer || '（无）'}${q.explanation ? '\n' + q.explanation : ''}`, {
-            fontSize: '13px',
-            color: '#bfe39a',
-            wordWrap: { width: 400, useAdvancedWrap: true }
-          })
-          .setOrigin(0, 0)
-        box.add(ans)
-        peek.setVisible(false)
-      })
     c.add(peek)
 
-    let optTop = 96 + stem.height + 60
-    if (this.app.quiz.IsSelfEvalType(q)) {
+    // 选项 / 自评按钮（偷看后收起，换"提交"）
+    const actionBtns: Phaser.GameObjects.Text[] = []
+    if (isSelfEval) {
       const yes = this.add
         .text(W / 2, optTop, '我独立做对了 ✓', {
-          fontSize: '14px',
+          fontSize: '15px',
           color: '#bfe39a',
           backgroundColor: '#243b22',
           padding: { x: 12, y: 6 }
         })
-        .setOrigin(0.5)
+        .setOrigin(0.5, 0)
         .setInteractive({ useHandCursor: true })
         .on('pointerdown', () => afterSubmit(0))
       const no = this.add
-        .text(W / 2, optTop + 46, '没做对，看答案', {
-          fontSize: '14px',
+        .text(W / 2, optTop + 50, '没做对，看答案', {
+          fontSize: '15px',
           color: '#ff9f9f',
           backgroundColor: '#3b2424',
           padding: { x: 12, y: 6 }
         })
-        .setOrigin(0.5)
+        .setOrigin(0.5, 0)
         .setInteractive({ useHandCursor: true })
         .on('pointerdown', () => afterSubmit(1))
+      actionBtns.push(yes, no)
       c.add([yes, no])
     } else if (q.options != null && q.options.length > 0) {
-      q.options.forEach((opt, idx) => {
+      q.options.slice(0, 4).forEach((opt, idx) => {
         const b = this.add
-          .text(40, optTop + idx * 44, `${String.fromCharCode(65 + idx)}. ${opt}`, {
-            fontSize: '13px',
+          .text(24, optTop + idx * 50, `${String.fromCharCode(65 + idx)}. ${breakMath(opt)}`, {
+            fontSize: '14px',
             color: '#eaf5dc',
             backgroundColor: '#243b22',
             padding: { x: 10, y: 6 },
-            wordWrap: { width: 380, useAdvancedWrap: true }
+            wordWrap: { width: 384, useAdvancedWrap: true }
           })
+          .setOrigin(0, 0)
           .setInteractive({ useHandCursor: true })
           .on('pointerdown', () => afterSubmit(idx))
+        actionBtns.push(b)
         c.add(b)
       })
     } else {
       const b = this.add
         .text(W / 2, optTop, '我独立做对了 ✓', {
-          fontSize: '14px',
+          fontSize: '15px',
           color: '#bfe39a',
           backgroundColor: '#243b22',
           padding: { x: 12, y: 6 }
         })
-        .setOrigin(0.5)
+        .setOrigin(0.5, 0)
         .setInteractive({ useHandCursor: true })
         .on('pointerdown', () => afterSubmit(0))
+      actionBtns.push(b)
       c.add(b)
     }
+
+    peek.on('pointerdown', () => {
+      if (revealed) return
+      revealed = true
+      this.app.quiz.RevealAnswer()
+      for (const b of actionBtns) b.setVisible(false)
+      const ans = makeStem(
+        this,
+        breakMath(`答案：${q.answer || '（无）'}${q.explanation ? '\n解析：' + q.explanation : ''}`),
+        { x: W / 2, y: optTop, width: 384, maxH: 160, fontSize: 13, minFont: 12, color: '#bfe39a' }
+      )
+      c.add(ans)
+      const go = this.add
+        .text(W / 2, optTop + ans.height + 20, '提交（已判负）', {
+          fontSize: '15px',
+          color: '#eaf5dc',
+          backgroundColor: '#2a4023',
+          padding: { x: 14, y: 6 }
+        })
+        .setOrigin(0.5, 0)
+        .setInteractive({ useHandCursor: true })
+        .on('pointerdown', () => afterSubmit(null))
+      c.add(go)
+      peek.setVisible(false)
+    })
   }
 
   private showPlayResult(correct: boolean, manualReveal: boolean, isLast: boolean): void {
