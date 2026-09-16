@@ -6,7 +6,7 @@ import type { Level } from '../core/types'
 import type { LevelResult } from '../core/ChallengeSessionController'
 
 const W = 480
-const H = 800
+const H = 920
 
 type View = 'chapters' | 'map' | 'play' | 'result'
 
@@ -186,7 +186,7 @@ export class Challenge extends Phaser.Scene {
     )
     const stem = this.add
       .text(W / 2, 96, q.stem || '（无题干）', {
-        fontSize: '15px',
+        fontSize: '13px',
         color: '#e8f0e0',
         align: 'left',
         wordWrap: { width: 400, useAdvancedWrap: true }

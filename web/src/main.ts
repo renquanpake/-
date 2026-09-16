@@ -9,7 +9,7 @@ const game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'app',
   width: 480,
-  height: 800,
+  height: 920,
   backgroundColor: '#1a2618',
   scale: {
     mode: Phaser.Scale.FIT,

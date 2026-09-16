@@ -5,7 +5,7 @@ import type { CropState, Question, KnowledgePoint } from '../core/types'
 import { Scheduler } from '../core/Scheduler'
 
 const W = 480
-const H = 800
+const H = 920
 const PLOT = 130
 const GAP = 18
 const COLS = 3
@@ -66,6 +66,7 @@ export class Farm extends Phaser.Scene {
     }
 
     // HUD
+    this.add.rectangle(0, 29, W, 58, 0x0c130a, 0.6).setOrigin(0, 0).setDepth(9)
     this.add.text(12, 8, '', { fontSize: '13px', color: '#e8f0e0' }).setDepth(10)
     this.fruit = this.add.text(12, 40, '', { fontFamily: 'sans-serif', fontSize: '14px', color: '#ffd75e' }).setDepth(10)
     this.seed = this.add.text(120, 40, '', { fontFamily: 'sans-serif', fontSize: '14px', color: '#bfe39a' }).setDepth(10)
@@ -232,7 +233,13 @@ export class Farm extends Phaser.Scene {
       p.soil.setTexture('tiles/soil_watered')
       const meta = this.app.bank.GetMeta(crop.kpId)
       p.label.setText((meta?.name ?? crop.kpId).slice(0, 12))
-      p.crop = this.add.image(this.plotPos(i).x + PLOT / 2, this.plotPos(i).y + PLOT * 0.4, this.cropKey(crop)).setDepth(2)
+      const key = this.cropKey(crop)
+      const src = this.textures.get(key).getSourceImage() as unknown as { width: number; height: number }
+      const ch = 68
+      p.crop = this.add
+        .image(this.plotPos(i).x + PLOT / 2, this.plotPos(i).y + PLOT * 0.42, key)
+        .setDisplaySize((ch * src.width) / src.height, ch)
+        .setDepth(2)
       const cx = this.plotPos(i).x + PLOT / 2
       const cy = this.plotPos(i).y + PLOT * 0.4
       if (crop.growth >= Scheduler.HarvestGrowth && crop.state !== 'mastered') {
@@ -332,24 +339,34 @@ export class Farm extends Phaser.Scene {
     quiz.Present(q)
 
     const c = this.add.container(0, 0).setDepth(30)
-    c.add(this.add.rectangle(W / 2, H / 2, W, H, 0, 0.65))
-    c.add(this.add.rectangle(W / 2, H / 2, 430, 360, 0x1c2a16, 1))
+    c.add(this.add.rectangle(W / 2, H / 2, W, H, 0, 0.6))
 
     const isSelfEval = quiz.IsSelfEvalType(q)
+    const top = 56
     let title = '浇水 · 答题'
     if (q.needsReview) title += '（练习题）'
-    c.add(this.add.text(W / 2, H / 2 - 158, title, { fontSize: '15px', color: '#9fd67f' }).setOrigin(0.5))
-    c.add(this.add.text(W / 2, H / 2 - 132, `${q.type} · 难度 ${q.difficulty}`, { fontSize: '11px', color: '#9fb48f' }).setOrigin(0.5))
+    c.add(this.add.text(W / 2, top, title, { fontSize: '15px', color: '#9fd67f' }).setOrigin(0.5, 0))
+    c.add(
+      this.add
+        .text(W / 2, top + 26, `${q.type} · 难度 ${q.difficulty}`, { fontSize: '11px', color: '#9fb48f' })
+        .setOrigin(0.5, 0)
+    )
 
+    const stemTop = top + 52
     const stem = this.add
-      .text(W / 2, H / 2 - 100, q.stem || '（无题干，直接作答）', {
-        fontSize: '14px',
+      .text(W / 2, stemTop, q.stem || '（无题干，直接作答）', {
+        fontSize: '13px',
         color: '#e8f0e0',
         align: 'left',
-        wordWrap: { width: 390 }
+        wordWrap: { width: 400, useAdvancedWrap: true }
       })
       .setOrigin(0.5, 0)
     c.add(stem)
+
+    const actionTop = stemTop + stem.height + 18
+    const actionH = isSelfEval ? 96 : q.options != null ? Math.min(q.options.length, 4) * 46 + 8 : 48
+    const panelH = Math.min(top + 52 + stem.height + 18 + actionH + 170, H - top - 16)
+    c.add(this.add.rectangle(W / 2, top + panelH / 2, 434, panelH, 0x1c2a16, 0.96))
 
     let answered = false
 
@@ -360,14 +377,19 @@ export class Farm extends Phaser.Scene {
       if (q.kpId) this.app.sched.OnAnswer(q.kpId, result.correct, save)
       this.app.persist()
 
-      const burst = this.add.image(W / 2, H / 2 + 60, result.correct ? 'quiz/burst_correct' : 'quiz/burst_wrong').setDisplaySize(72, 72).setDepth(31)
+      const fbTop = actionTop + actionH + 16
+      const burst = this.add
+        .image(W / 2, fbTop, result.correct ? 'quiz/burst_correct' : 'quiz/burst_wrong')
+        .setDisplaySize(56, 56)
+        .setOrigin(0.5, 0)
+        .setDepth(31)
       c.add(burst)
       let detail = result.correct ? '答对了，作物长大一格！' : '答错 / 查看了答案，间隔重置。'
       if (result.answerText != null && result.answerText !== '') detail += `\n答案：${result.answerText}`
       if (result.explanation != null && result.explanation !== '') detail += `\n解析：${result.explanation}`
       const feedback = this.add
-        .text(W / 2, H / 2 + 150, detail, {
-          fontSize: '14px',
+        .text(W / 2, fbTop + 64, detail, {
+          fontSize: '13px',
           color: '#ffd75e',
           align: 'left',
           wordWrap: { width: 380, useAdvancedWrap: true }
@@ -377,7 +399,12 @@ export class Farm extends Phaser.Scene {
       c.add(feedback)
 
       const btn = this.add
-        .text(W / 2, H / 2 + 120, '知道了', { fontSize: '14px', color: '#eaf5dc', backgroundColor: '#2a4023', padding: { x: 14, y: 6 } })
+        .text(W / 2, top + panelH - 44, '知道了', {
+          fontSize: '14px',
+          color: '#eaf5dc',
+          backgroundColor: '#2a4023',
+          padding: { x: 14, y: 6 }
+        })
         .setOrigin(0.5)
         .setDepth(31)
         .setInteractive({ useHandCursor: true })
@@ -389,44 +416,59 @@ export class Farm extends Phaser.Scene {
       c.add(btn)
     }
 
-    let optTop = H / 2 + stem.height + 20
     if (isSelfEval) {
       const yes = this.add
-        .text(W / 2, optTop, '我独立做对了 ✓', { fontSize: '14px', color: '#bfe39a', backgroundColor: '#243b22', padding: { x: 12, y: 6 } })
-        .setOrigin(0.5)
+        .text(W / 2, actionTop, '我独立做对了 ✓', {
+          fontSize: '14px',
+          color: '#bfe39a',
+          backgroundColor: '#243b22',
+          padding: { x: 12, y: 6 }
+        })
+        .setOrigin(0.5, 0)
         .setInteractive({ useHandCursor: true })
         .on('pointerdown', () => showResult(0))
       const no = this.add
-        .text(W / 2, optTop + 44, '没做对，看答案学习', { fontSize: '14px', color: '#ff9f9f', backgroundColor: '#3b2424', padding: { x: 12, y: 6 } })
-        .setOrigin(0.5)
+        .text(W / 2, actionTop + 46, '没做对，看答案学习', {
+          fontSize: '14px',
+          color: '#ff9f9f',
+          backgroundColor: '#3b2424',
+          padding: { x: 12, y: 6 }
+        })
+        .setOrigin(0.5, 0)
         .setInteractive({ useHandCursor: true })
         .on('pointerdown', () => showResult(1))
       c.add([yes, no])
     } else if (q.options != null && q.options.length > 0) {
-      q.options.forEach((opt, idx) => {
+      q.options.slice(0, 4).forEach((opt, idx) => {
         const b = this.add
-          .text(24, optTop + idx * 40, `${String.fromCharCode(65 + idx)}. ${opt}`, {
+          .text(24, actionTop + idx * 46, `${String.fromCharCode(65 + idx)}. ${opt}`, {
             fontSize: '13px',
             color: '#eaf5dc',
             backgroundColor: '#243b22',
             padding: { x: 10, y: 6 },
-            wordWrap: { width: 380 }
+            wordWrap: { width: 380, useAdvancedWrap: true }
           })
+          .setOrigin(0, 0)
           .setInteractive({ useHandCursor: true })
           .on('pointerdown', () => showResult(idx))
         c.add(b)
       })
     } else {
       const b = this.add
-        .text(W / 2, optTop, '我独立做对了 ✓', { fontSize: '14px', color: '#bfe39a', backgroundColor: '#243b22', padding: { x: 12, y: 6 } })
-        .setOrigin(0.5)
+        .text(W / 2, actionTop, '我独立做对了 ✓', {
+          fontSize: '14px',
+          color: '#bfe39a',
+          backgroundColor: '#243b22',
+          padding: { x: 12, y: 6 }
+        })
+        .setOrigin(0.5, 0)
         .setInteractive({ useHandCursor: true })
         .on('pointerdown', () => showResult(0))
       c.add(b)
     }
 
     const close = this.add
-      .text(W - 16, 40, '×', { fontSize: '22px', color: '#ff9f9f' })
+      .text(W - 16, 20, '×', { fontSize: '22px', color: '#ff9f9f' })
       .setOrigin(0.5, 0)
       .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => this.closeQuiz())

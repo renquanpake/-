@@ -3,7 +3,7 @@ import Phaser from 'phaser'
 import { App } from '../app'
 
 const W = 480
-const H = 800
+const H = 920
 
 export class Stats extends Phaser.Scene {
   private app!: App
