@@ -183,9 +183,19 @@ export class Challenge extends Phaser.Scene {
     const c = this.root()
     this.title(c, `闯关 ${this.curLevel.name}`, '放弃', () => this.abort())
 
-    // 卡片面板（先加矩形再放文字，避免盖住内容）
-    const top = 64
-    const panel = this.add.rectangle(W / 2, top + 240, 434, 480, 0x1c2a16, 0.97)
+    // 卡片面板（先加矩形再放文字，避免盖住内容；短内容垂直居中）
+    const isSelfEval = this.app.quiz.IsSelfEvalType(q)
+    const actionH = isSelfEval ? 100 : q.options != null ? Math.min(q.options.length, 4) * 50 + 10 : 52
+    const stem0 = makeStem(this, q.stem ? breakMath(q.stem) : '（无题干）', {
+      x: W / 2,
+      y: 0,
+      width: 396,
+      maxH: 320
+    })
+    const panelH = Math.min(36 + stem0.height + 18 + 44 + actionH + 80, H - 76)
+    const top = Math.max(64, Math.round((H - panelH) / 2))
+    stem0.destroy()
+    const panel = this.add.rectangle(W / 2, top + panelH / 2, 434, panelH, 0x1c2a16, 0.97)
     c.add(panel)
     c.add(
       this.add
@@ -215,12 +225,7 @@ export class Challenge extends Phaser.Scene {
     }
 
     const actionTop = stemTop + stem.height + 18
-    const isSelfEval = this.app.quiz.IsSelfEvalType(q)
     const optTop = actionTop + 44
-    const actionH = isSelfEval ? 100 : q.options != null ? Math.min(q.options.length, 4) * 50 + 10 : 52
-    const panelH = Math.min(top + 36 + stem.height + 18 + 44 + actionH + 80, H - top - 12)
-    panel.setSize(434, panelH)
-    panel.setPosition(W / 2, top + panelH / 2)
 
     // 偷看答案（内联展开，不再盖题干）
     const peek = this.add

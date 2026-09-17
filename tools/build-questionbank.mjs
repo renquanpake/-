@@ -16,6 +16,62 @@ function loadJson(p) {
   return JSON.parse(fs.readFileSync(p, 'utf8'));
 }
 
+// ---------- OCR 文本修复（"文本版" PDF 的系统性损伤） ----------
+// 1) 题干尾部混入的章节标题截断  2) 分式拆行（分母掉到下一行）合回 "a / b"
+// 3) 箭头乱码行（>>> / <<< / 单 < >）  4) 孤立括号行（题号残骸）
+// 规则保守：只动数学上下文明确的行，不动编号列表（"1." "2、" 有标点不匹配）
+function repairMathText(s) {
+  if (!s) return s;
+  const cutPatterns = [
+    /^\s*第[一二三四五六七八九十百]+[节章]/,
+    /^\s*[一二三四五六七八九十]+\s*、/
+  ];
+  const lines = s.replace(/\r/g, '').split('\n');
+  let cut = lines.length;
+  for (let i = 0; i < lines.length; i++) {
+    if (cutPatterns.some((re) => re.test(lines[i]))) {
+      cut = i;
+      break;
+    }
+  }
+  const mathTail = /[A-Za-z0-9+\-−)）]$/;
+  const out = [];
+  for (let i = 0; i < cut; i++) {
+    // 行首残留的右括号（题号 "8）" 被抽走后留下的 ））
+    let raw = lines[i].trim().replace(/^）+\s*/, '').replace(/^\)+\s*/, '');
+    // 孤立括号行
+    if (/^[（）()]+$/.test(raw)) continue;
+    // 箭头乱码行
+    if (/^[<>]+:?$/.test(raw)) {
+      if (raw.endsWith(':') && out.length > 0) out[out.length - 1] += ':';
+      continue;
+    }
+    const prev = out.length > 0 ? out[out.length - 1] : '';
+    const mNum = raw.match(/^([−-]?\d{1,2})(?:\s*(=)\s*)?(.*)$/);
+    // 分式：行首 1-2 位数字，上一行以数学符号结尾，且不是编号列表（"1." "2、"）
+    if (mNum && prev && mathTail.test(prev) && !/^\d{1,2}\s*[.、,．，]/.test(raw)) {
+      const d = mNum[1];
+      const eq = mNum[2];
+      const rest = (mNum[3] || '').trim();
+      let merged = prev + ' / ' + d;
+      if (eq) merged += ' = ' + (rest ? rest : '');
+      else if (rest) merged += ' ' + rest;
+      out[out.length - 1] = merged;
+      continue;
+    }
+    if (/^\d{1,2}$/.test(raw) && !(prev && mathTail.test(prev))) {
+      // 裸数字且上一行非数学 → 题号/节号残骸，删
+      continue;
+    }
+    if (raw !== '') out.push(raw);
+  }
+  return out
+    .map((l) => l.replace(/[ \t]+/g, ' '))
+    .filter((l) => l !== '')
+    .join('\n')
+    .trim();
+}
+
 // ---------- 数学 ----------
 function buildMath() {
   const raw = loadJson(path.join(EXTRACTED, 'math750.json'));
@@ -43,9 +99,9 @@ function buildMath() {
       num: q.num,
       kpId: `${chap.id}.kp01`,
       type: q.type === 'single' ? 'single' : q.type === 'proof' ? 'blank' : 'calc',
-      stem: q.stem,
+      stem: repairMathText(q.stem),
       options: q.type === 'single' ? [] : [],
-      answer: hasAns ? q.answer_text.slice(0, 2000) : '',
+      answer: hasAns ? repairMathText(q.answer_text).slice(0, 2000) : '',
       explanation: hasAns ? '' : '',
       difficulty: q.difficulty,
       source: { book: BOOK, chapter: chap.name, page: '', no: q.num },
