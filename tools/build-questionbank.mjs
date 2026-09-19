@@ -41,8 +41,8 @@ function repairMathText(s) {
     let raw = lines[i].trim().replace(/^）+\s*/, '').replace(/^\)+\s*/, '');
     // 孤立括号行
     if (/^[（）()]+$/.test(raw)) continue;
-    // 箭头乱码行
-    if (/^[<>]+:?$/.test(raw)) {
+    // 箭头乱码行（含花括号残迹的孤立冒号行）
+    if (/^[<>]+:?$/.test(raw) || raw === ':') {
       if (raw.endsWith(':') && out.length > 0) out[out.length - 1] += ':';
       continue;
     }
