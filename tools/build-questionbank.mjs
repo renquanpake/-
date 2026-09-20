@@ -91,7 +91,300 @@ function extractAnswerKey(answerText) {
   return head;
 }
 
+// ---------- 选择题选项生成：answerKey → [正确项, 干扰项×3]；无法生成返回 null（该题保留填空判分） ----------
+
+// 数值化（白名单校验 + 受控求值；含自由变量/不可解析 → null）
+function numEval(s) {
+  let t = String(s).trim()
+  if (t === '') return null
+  t = t.replace(/[−–—]/g, '-')
+  t = t.replace(/²/g, '**2').replace(/³/g, '**3')
+  t = t.replace(/\^/g, '**')
+  t = t.replace(/√(\d+(?:\.\d+)?)/g, 'Math.sqrt($1)').replace(/π/g, 'Math.PI')
+  t = t.replace(/\s+/g, '')
+  if (/[A-Za-z]/.test(t.replace(/Math\.sqrt|Math\.PI/g, ''))) return null
+  // 隐式乘法：数字/右括号 紧跟 Math.sqrt / Math.PI
+  t = t.replace(/([0-9.)])(Math\.sqrt|Math\.PI)/g, '$1*$2')
+  try {
+    const v = new Function('"use strict";return (' + t + ')')()
+    return typeof v === 'number' && Number.isFinite(v) ? v : null
+  } catch {
+    return null
+  }
+}
+
+// 数值干扰项：按形态生成 3 个数值不等、互不重复的候选
+function numDistractors(val, form) {
+  const out = []
+  const push = (s) => {
+    const v = numEval(s)
+    if (v == null || Math.abs(v - val) < 1e-9) return
+    if (!out.some((o) => Math.abs(numEval(o) - v) < 1e-9)) out.push(s)
+  }
+  const f = String(form).replace(/−/g, '-')
+  const mR = f.match(/^([1-9])?√(\d+)\/(\d+)$/) // k√n/m
+  const mRP = f.match(/^√(\d+)π\/(\d+)$/) // √nπ/m
+  const mP = f.match(/^π\/(\d+)$/)
+  const mF = f.match(/^(\d+)\/(\d+)$/) // a/b
+  const mI = f.match(/^([+-]?)(\d+(?:\.\d+)?)$/) // 带符号整数/小数
+  if (mR) {
+    const koef = mR[1] ?? ''
+    push(`${koef}√${mR[2]}/${Number(mR[3]) * 2}`)
+    push(`${koef === '' ? '2' : Number(koef) * 2}√${mR[2]}/${mR[3]}`)
+    push(`√${Number(mR[2]) * 4}/${mR[3]}`)
+    push(`-√${mR[2]}/${mR[3]}`)
+  } else if (mRP) {
+    push(`√${mRP[1]}π/${Number(mRP[2]) + 1}`)
+    push(`2√${mRP[1]}π/${mRP[2]}`)
+    push(`√${mRP[1]}π/${Number(mRP[2]) * 2}`)
+  } else if (mP) {
+    push(`π/${Number(mP[1]) + 1}`)
+    push(`2π/${mP[1]}`)
+    push(`π/${Math.max(1, Number(mP[1]) - 1)}`)
+  } else if (mF) {
+    push(`${mF[1]}/${Number(mF[2]) * 2}`)
+    push(`${Number(mF[1]) + 1}/${mF[2]}`)
+    push(`${Number(mF[1]) - 1}/${mF[2]}`)
+    push(`-${mF[1]}/${mF[2]}`)
+  } else if (mI) {
+    const n = Number(mI[2]) * (mI[1] === '-' ? -1 : 1)
+    push(String(n + 1))
+    push(String(n - 1))
+    push(String(-n))
+    push(String(n * 2))
+    push(String(n + 2))
+    push(String(n - 2))
+  }
+  return out.slice(0, 3)
+}
+
+// 解析 "ax + by + cz + c0 = 0" / "ax + by + cz = d"（缺项允许）→ {a,b,c,d}
+function parseLinEq(s) {
+  // 归一化：Unicode 负号 → ASCII '-'，去空格
+  const norm = String(s).replace(/[−–—]/g, '-').replace(/\s+/g, '')
+  const eq = norm.split('=')
+  if (eq.length !== 2 || eq[0] === '') return null
+  const lhs = eq[0]
+  const rhs = eq[1]
+  let dRight = 0
+  if (rhs !== '') {
+    if (!/^[+-]?\d+$/.test(rhs)) return null
+    dRight = Number(rhs)
+  }
+  const m = lhs.match(/^([+-]?\d*)x(?:([+-]\d*)y)?(?:([+-]\d*)z)?(?:([+-]\d+))?$/)
+  if (!m) return null
+  const fc = (x) => (x === '' ? 1 : x === '-' ? -1 : Number(x))
+  const tc = (x) => (x === '+' || x === '' ? 1 : x === '-' ? -1 : Number(x))
+  const a = fc(m[1])
+  const b = m[2] == null ? 0 : tc(m[2])
+  const c = m[3] == null ? 0 : tc(m[3])
+  const c0 = m[4] == null ? 0 : Number(m[4])
+  return { a, b, c, d: dRight - c0 }
+}
+
+// 线性方程干扰项：系数 +1 / +3、常数 +2
+function eqDistractors(eq) {
+  const p = parseLinEq(eq)
+  if (p == null) return null
+  const termStr = (coef, v, first) => {
+    if (coef === 0) return null
+    const body = (Math.abs(coef) === 1 ? '' : String(Math.abs(coef))) + v
+    if (first) return coef < 0 ? '-' + body : body
+    return (coef < 0 ? ' - ' : ' + ') + body
+  }
+  const build = (A, B, C, D) => {
+    const t = [termStr(A, 'x', true), termStr(B, 'y', false), termStr(C, 'z', false)].filter((x) => x != null).join('')
+    return (t === '' ? '0' : t) + (D === 0 ? '' : ' = ' + D)
+  }
+  const norm = (x) => x.replace(/\s+/g, '').replace(/[−–—]/g, '-')
+  const target = norm(eq)
+  const cands = [
+    build(p.a + 1, p.b, p.c, p.d),
+    build(p.a, p.b + 3, p.c, p.d),
+    build(p.a, p.b, p.c + 1, p.d),
+    build(p.a, p.b, p.c, p.d + 2),
+    build(p.a, p.b, p.c, -p.d)
+  ]
+  const out = []
+  for (const cand of cands) {
+    const cn = norm(cand)
+    if (cn === target) continue
+    if (out.some((o) => norm(o) === cn)) continue
+    out.push(cand)
+    if (out.length === 3) break
+  }
+  return out.length === 3 ? out : null
+}
+
+// 纯向量 "(a, b, c)" 分量扰动
+function vecDistractors(v) {
+  const m = String(v).match(/^\((-?\d+), ?(-?\d+), ?(-?\d+)\)$/)
+  if (!m) return null
+  const p = m.slice(1).map(Number)
+  const fmt = (c) => `(${c[0]}, ${c[1]}, ${c[2]})`
+  const cands = [
+    [p[0] + 1, p[1], p[2]],
+    [p[0], p[1] + 1, p[2]],
+    [p[0], p[1], p[2] + 1],
+    [-p[0], p[1], p[2]],
+    [p[0] - 1, p[1], p[2]],
+    [p[0], p[1] - 1, p[2]]
+  ]
+  const out = []
+  for (const c of cands) {
+    const s = fmt(c)
+    if (s === String(v) || out.includes(s)) continue
+    out.push(s)
+    if (out.length === 3) break
+  }
+  return out.length === 3 ? out : null
+}
+
+// 直线对称式 "n/d = n/d = n/d"（分母可为 0）：分母 ±1 扰动
+function lineDistractors(s) {
+  const base = String(s).replace(/即.*$/, '').replace(/[−–]/g, '-').trim()
+  const segs = base.split('=')
+  if (segs.length !== 3) return null
+  const parsed = segs.map((sg) => {
+    const t = sg.trim().replace(/（.*$/, '').replace(/[，、。；;]+$/, '').trim()
+    const m = t.match(/^(.+?)\/\(?([+\-]?\d+)\)?$/)
+    return m ? { num: m[1].trim(), den: Number(m[2]) } : null
+  })
+  if (parsed.some((x) => x == null)) return null
+  const build = (i, den) =>
+    parsed
+      .map((p, j) => {
+        const d = j === i ? den : p.den
+        return d === 0 ? p.num : `${p.num}/${d}`
+      })
+      .join(' = ')
+  const out = []
+  for (const [i, k] of [
+    [0, 1],
+    [1, 1],
+    [2, 1],
+    [0, -1],
+    [2, -1]
+  ]) {
+    if (parsed[i].den === 0) continue
+    const cand = build(i, parsed[i].den + k)
+    if (cand !== base && !out.includes(cand)) out.push(cand)
+    if (out.length === 3) break
+  }
+  return out.length === 3 ? out : null
+}
+
+// 多部分 key（；， 或 分隔）：逐部分生成选项；全部成功才出题
+function multiPartOpts(key) {
+  const parts = String(key)
+    .split(/[；;]| ， |，| 或 /)
+    .map((s) => s.trim())
+    .filter((s) => s !== '')
+  if (parts.length < 2) return null
+  const gen = (raw) => {
+    // 剥 "(n) " 编号前缀与中文标签前缀（"切线方程："）
+    let p = raw.replace(/^\(\d\)\s*/, '')
+    p = p.replace(/^[\u4e00-\u9fff]+[：:]\s*/, (m) => (raw.startsWith(m) ? '' : m))
+    // 数值结论："label = 数字" 或 "∫_L = 值" 或 纯数值表达式
+    const mEq = p.match(/^(.*?)\s*=\s*([+\-−]?\d+(?:\.\d+)?)\s*$/)
+    if (mEq && mEq[1] !== '' && mEq[1].length <= 20) {
+      const val = numEval(mEq[2].replace(/−/g, '-'))
+      if (val != null) {
+        const d = numDistractors(val, mEq[2])
+        return d.length >= 3 ? [p, ...d.map((x) => `${mEq[1]} = ${x}`)] : null
+      }
+    }
+    if (numEval(p) != null) {
+      const d = numDistractors(numEval(p), p)
+      return d.length >= 3 ? [p, ...d] : null
+    }
+    if (/\d+\s*[xzy]/.test(p) && /\s*=\s*[+\-−]?\d*($| )/.test(p) && parseLinEq(p) != null) {
+      const d = eqDistractors(p)
+      return d != null && d.length >= 3 ? [p, ...d] : null
+    }
+    if (/^\((-?\d+), ?(-?\d+), ?(-?\d+)\)$/.test(p)) {
+      const d = vecDistractors(p)
+      return d ? [p, ...d] : null
+    }
+    const lineP = p.replace(/即.*$/, '').trim()
+    if (lineP.split('=').length === 3 && lineP.match(/\//)) {
+      const d = lineDistractors(lineP)
+      return d ? [p, ...d] : null
+    }
+    return null
+  }
+  const groups = parts.map(gen)
+  // 只保留能生成选项的部分（"即..."等价式、条件子句等丢弃）
+  const usable = []
+  for (let i = 0; i < parts.length; i++) {
+    if (groups[i] != null) usable.push(i)
+  }
+  if (usable.length === 0) return null
+  const correct = usable.map((i) => parts[i]).join(' 或 ')
+  const wrongs = []
+  for (const i of usable) {
+    for (const sel of [1, 2, 3]) {
+      const w = usable.map((j) => (j === i ? groups[j][sel] : parts[j])).join(' 或 ')
+      if (w !== correct && !wrongs.includes(w)) wrongs.push(w)
+      if (wrongs.length >= 3) break
+    }
+    if (wrongs.length >= 3) break
+  }
+  if (wrongs.length < 3) return null
+  return [correct, ...wrongs.slice(0, 3)]
+}
+
+export function buildOptionsForKey(key) {
+  if (!key) return null
+  const k = String(key).trim()
+  // 多部分（；， 或 分隔多个子答案）
+  if (/；|，|\s或\s/.test(k)) {
+    const r = multiPartOpts(k)
+    if (r != null) return r
+    return null // 多部分生成失败 → 保留填空判分
+  }
+  // 单部分
+  // 数值（可带 d = / V = / ∫_L = / r = 前缀）
+  const mLab = k.match(/^(∫_L|∮_L|d|V|r)\s*=\s*(.+)$/)
+  const prefix = mLab ? `${mLab[1]} = ` : ''
+  const bare = mLab ? mLab[2].trim() : k
+  const val = numEval(bare)
+  if (val != null && /^[0-9+\-−*/(). ²³√π\s]*$/.test(bare)) {
+    const d = numDistractors(val, bare)
+    if (d.length >= 3) return [k, ...d.map((x) => prefix + x)]
+  }
+  // 线性方程
+  if (parseLinEq(bare) != null) {
+    const d = eqDistractors(bare)
+    if (d != null && d.length >= 3) return [k, ...d]
+  }
+  // 纯向量
+  const vm = k.match(/^[= ]?\((-?\d+), ?(-?\d+), ?(-?\d+)\)$/);
+  if (vm && vecDistractors(vm[0]) != null) {
+    const vs = vm[0]
+    const d = vecDistractors(vs)
+    return [k, ...d]
+  }
+  // 直线对称式
+  if (k.match(/\//)) {
+    const d = lineDistractors(k)
+    if (d != null && d.length >= 3) return [k, ...d]
+  }
+  return null
+}
+
 // ---------- 数学 ----------
+// 确定性洗牌（选项顺序固定，重建不漂移）
+function shuffled(arr, seed) {
+  let s = seed >>> 0
+  for (let i = arr.length - 1; i > 0; i--) {
+    s = (s * 1103515245 + 12345) >>> 0
+    const j = s % (i + 1)
+    ;[arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+  return arr
+}
+
 function buildMath() {
   const raw = loadJson(path.join(EXTRACTED, 'math750.json'));
   const qs = raw.questions;
@@ -113,15 +406,29 @@ function buildMath() {
     const chap = chapters.find((c) => q.num >= c.from && q.num <= c.to) || chapters[0];
     const id = `math.q${String(q.num).padStart(4, '0')}`;
     const hasAns = q.has_answer && q.answer_text.trim().length > 0;
+    const repairedAnswer = hasAns ? repairMathText(q.answer_text) : '';
+    const key = hasAns ? extractAnswerKey(repairedAnswer) : '';
+    const optGroup = buildOptionsForKey(key);
+    // 可出题 → 选择题（选项打乱、记录正确索引）；否则 → 填空（输入判分）/ 自评
+    let type, options = [], answerIdx = 0;
+    if (optGroup != null) {
+      type = 'single';
+      options = shuffled(optGroup.slice(), q.num * 7919 + 13);
+      answerIdx = options.indexOf(optGroup[0]);
+    } else if (key !== '' || q.type === 'proof') {
+      type = 'blank';
+    } else {
+      type = 'calc';
+    }
     questions.push({
       id,
       num: q.num,
       kpId: `${chap.id}.kp01`,
-      type: q.type === 'single' ? 'single' : q.type === 'proof' ? 'blank' : 'calc',
+      type,
       stem: repairMathText(q.stem),
-      options: q.type === 'single' ? [] : [],
-      answer: hasAns ? repairMathText(q.answer_text).slice(0, 2000) : '',
-      answerKey: hasAns ? extractAnswerKey(repairMathText(q.answer_text)) : '',
+      options,
+      answer: type === 'single' ? String(answerIdx) : hasAns ? repairedAnswer.slice(0, 2000) : '',
+      answerKey: key,
       explanation: hasAns ? '' : '',
       difficulty: q.difficulty,
       source: { book: BOOK, chapter: chap.name, page: '', no: q.num },

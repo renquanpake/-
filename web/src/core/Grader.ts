@@ -94,6 +94,12 @@ function partHit(partNorm: string, inputParts: string[], inputNorm: string): boo
   for (const p of inputParts) {
     if (p.length >= 4 && partNorm.length >= 4 && (p.includes(partNorm) || partNorm.includes(p))) return true
   }
+  // 汉字短词（收敛/发散/可微 等）：含 2 个汉字即视为有效包含
+  const cjk = (t: string) => (t.match(/[\u4e00-\u9fff]/g) || []).length
+  for (const p of inputParts) {
+    if (cjk(p) >= 2 && partNorm.includes(p)) return true
+  }
+  if (cjk(partNorm) >= 2 && partNorm.length <= 12 && inputNorm.includes(partNorm)) return true
   // 字母数字序列相同（仅标点/空格/负号形式不同）
   const aA = alnum(partNorm)
   const aI = alnum(inputNorm)
