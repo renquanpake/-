@@ -20,3 +20,7 @@ game/UserSettings/
 web/public/art/
 web/public/questionbank/
 web/dist/
+
+# data-source backups from one-shot fix scripts
+tools/extracted/*.bak
+tools/extracted/*.bak2
