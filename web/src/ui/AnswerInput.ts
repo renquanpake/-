@@ -7,8 +7,11 @@ export class AnswerInput {
 
   constructor(scene: Phaser.Scene) {
     this.game = scene.game
+    // 防御：清掉其它场景遗留的旧输入框（同屏只允许一个）
+    document.querySelectorAll('input[data-answer-input]').forEach((n) => n.remove())
     this.el = document.createElement('input')
     this.el.type = 'text'
+    this.el.setAttribute('data-answer-input', '1')
     this.el.placeholder = '把你的答案写在这里，如 √3/3 或 2x+2y+3z=9'
     this.el.maxLength = 120
     this.el.autocomplete = 'off'
