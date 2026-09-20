@@ -23,6 +23,7 @@ namespace StudyFarm.Data
         public string stem;
         public List<string> options;
         public string answer;
+        public string answerKey; // 机判键：答案首行结论（可空，空则自评）
         public string explanation;
         public int difficulty;
         public Source source;

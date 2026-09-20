@@ -17,6 +17,7 @@ export interface Question {
   stem: string
   options: string[] | null
   answer: string
+  answerKey?: string // 机判键（答案首行结论；空则自评）
   explanation: string
   difficulty: number
   source: Source | null

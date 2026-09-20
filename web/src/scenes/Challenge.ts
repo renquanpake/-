@@ -5,6 +5,8 @@ import { LevelMapController, LevelNodeModel } from '../core/LevelMapController'
 import type { Level } from '../core/types'
 import type { LevelResult } from '../core/ChallengeSessionController'
 import { breakMath, makeStem } from '../textutil'
+import { gradeInput } from '../core/Grader'
+import { AnswerInput } from '../ui/AnswerInput'
 
 const W = 480
 const H = 920
@@ -20,6 +22,7 @@ export class Challenge extends Phaser.Scene {
   private curLevel: Level | null = null
   private answered = 0
   private viewRoot: Phaser.GameObjects.Container | null = null
+  private answerInput: AnswerInput | null = null
 
   constructor() {
     super('Challenge')
@@ -31,9 +34,11 @@ export class Challenge extends Phaser.Scene {
 
   create() {
     // 场景重入时清掉上一轮显示对象，防止残留与重复
-    (this.children as unknown as { removeAll(deep?: boolean): void }).removeAll(true)
+    ;(this.children as unknown as { removeAll(deep?: boolean): void }).removeAll(true)
     this.viewRoot = null
     this.curLevel = null
+    this.answerInput?.destroy()
+    this.answerInput = null
     const save = this.app.save
     this.mapCtl.Init(this.app.bank, save)
     this.mapCtl.session = this.app.session
@@ -174,6 +179,8 @@ export class Challenge extends Phaser.Scene {
   }
 
   private showQuestion(): void {
+    this.answerInput?.destroy()
+    this.answerInput = null
     const session = this.app.session
     const q = session.CurrentQuestion
     if (q == null || this.curLevel == null) {
@@ -185,7 +192,8 @@ export class Challenge extends Phaser.Scene {
 
     // 卡片面板（先加矩形再放文字，避免盖住内容；短内容垂直居中）
     const isSelfEval = this.app.quiz.IsSelfEvalType(q)
-    const actionH = isSelfEval ? 100 : q.options != null ? Math.min(q.options.length, 4) * 50 + 10 : 52
+    const gradable = isSelfEval && (q.answerKey ?? '') !== ''
+    const actionH = isSelfEval ? (gradable ? 150 : 100) : q.options != null ? Math.min(q.options.length, 4) * 50 + 10 : 52
     const stem0 = makeStem(this, q.stem ? breakMath(q.stem) : '（无题干）', {
       x: W / 2,
       y: 0,
@@ -227,21 +235,81 @@ export class Challenge extends Phaser.Scene {
     const actionTop = stemTop + stem.height + 18
     const optTop = actionTop + 44
 
-    // 偷看答案（内联展开，不再盖题干）
-    const peek = this.add
-      .text(W / 2, actionTop, '👁 偷看答案（将判负）', {
-        fontSize: '12px',
-        color: '#ffb86b',
-        backgroundColor: '#3a2f16',
-        padding: { x: 10, y: 4 }
-      })
-      .setOrigin(0.5, 0)
-      .setInteractive({ useHandCursor: true })
-    c.add(peek)
+    // 偷看答案（内联展开，不再盖题干；可机判题走输入判分路径，不显示偷看）
+    let peek: Phaser.GameObjects.Text | null = null
+    if (!gradable) {
+      peek = this.add
+        .text(W / 2, actionTop, '👁 偷看答案（将判负）', {
+          fontSize: '12px',
+          color: '#ffb86b',
+          backgroundColor: '#3a2f16',
+          padding: { x: 10, y: 4 }
+        })
+        .setOrigin(0.5, 0)
+        .setInteractive({ useHandCursor: true })
+      c.add(peek)
+    }
 
     // 选项 / 自评按钮（偷看后收起，换"提交"）
     const actionBtns: Phaser.GameObjects.Text[] = []
-    if (isSelfEval) {
+    if (gradable) {
+      c.add(
+        this.add
+          .text(W / 2, actionTop, '把做出的答案填进去，提交自动判分', { fontSize: '12px', color: '#9fb48f' })
+          .setOrigin(0.5, 0)
+      )
+      this.answerInput = new AnswerInput(this)
+      this.answerInput.show(W / 2 - 170, optTop, 340)
+      let emptyHint: Phaser.GameObjects.Text | null = null
+      const gradeSubmit = () => {
+        const val = this.answerInput?.value() ?? ''
+        if (val === '') {
+          if (emptyHint == null) {
+            emptyHint = this.add
+              .text(W / 2, optTop + 46, '请先输入你的答案', { fontSize: '12px', color: '#ffb86b' })
+              .setOrigin(0.5, 0)
+            c.add(emptyHint)
+            this.time.delayedCall(1500, () => {
+              if (emptyHint != null) {
+                emptyHint.destroy()
+                emptyHint = null
+              }
+            })
+          }
+          return
+        }
+        const g = gradeInput(val, q.answerKey ?? '')
+        const r = this.app.session.SubmitGraded(val, this.app.save)
+        this.app.persist()
+        this.answered++
+        this.answerInput?.hide()
+        const detail = [`你的答案：${val}`, `标准答案：${g.key}`]
+        if (!r.correct) detail.push(g.detail)
+        this.showPlayResult(r.correct, r.manualReveal, this.answered >= this.total(), detail.join('\n'))
+      }
+      const submit = this.add
+        .text(W / 2 - 95, optTop + 46, '提交答案', {
+          fontSize: '14px',
+          color: '#bfe39a',
+          backgroundColor: '#243b22',
+          padding: { x: 10, y: 6 }
+        })
+        .setOrigin(0.5, 0)
+        .setInteractive({ useHandCursor: true })
+        .on('pointerdown', gradeSubmit)
+      const no = this.add
+        .text(W / 2 + 95, optTop + 46, '没做对，看答案', {
+          fontSize: '13px',
+          color: '#ff9f9f',
+          backgroundColor: '#3b2424',
+          padding: { x: 8, y: 6 }
+        })
+        .setOrigin(0.5, 0)
+        .setInteractive({ useHandCursor: true })
+        .on('pointerdown', () => afterSubmit(1))
+      actionBtns.push(submit, no)
+      c.add([submit, no])
+    } else if (isSelfEval) {
       const yes = this.add
         .text(W / 2, optTop, '我独立做对了 ✓', {
           fontSize: '15px',
@@ -295,39 +363,55 @@ export class Challenge extends Phaser.Scene {
       c.add(b)
     }
 
-    peek.on('pointerdown', () => {
-      if (revealed) return
-      revealed = true
-      this.app.quiz.RevealAnswer()
-      for (const b of actionBtns) b.setVisible(false)
-      const ans = makeStem(
-        this,
-        breakMath(`答案：${q.answer || '（无）'}${q.explanation ? '\n解析：' + q.explanation : ''}`),
-        { x: W / 2, y: optTop, width: 384, maxH: 160, fontSize: 13, minFont: 12, color: '#bfe39a' }
-      )
-      c.add(ans)
-      const go = this.add
-        .text(W / 2, optTop + ans.height + 20, '提交（已判负）', {
-          fontSize: '15px',
-          color: '#eaf5dc',
-          backgroundColor: '#2a4023',
-          padding: { x: 14, y: 6 }
-        })
-        .setOrigin(0.5, 0)
-        .setInteractive({ useHandCursor: true })
-        .on('pointerdown', () => afterSubmit(null))
-      c.add(go)
-      peek.setVisible(false)
-    })
+    if (peek != null) {
+      peek.on('pointerdown', () => {
+        if (revealed) return
+        revealed = true
+        this.app.quiz.RevealAnswer()
+        for (const b of actionBtns) b.setVisible(false)
+        const ans = makeStem(
+          this,
+          breakMath(`答案：${q.answer || '（无）'}${q.explanation ? '\n解析：' + q.explanation : ''}`),
+          { x: W / 2, y: optTop, width: 384, maxH: 160, fontSize: 13, minFont: 12, color: '#bfe39a' }
+        )
+        c.add(ans)
+        const go = this.add
+          .text(W / 2, optTop + ans.height + 20, '提交（已判负）', {
+            fontSize: '15px',
+            color: '#eaf5dc',
+            backgroundColor: '#2a4023',
+            padding: { x: 14, y: 6 }
+          })
+          .setOrigin(0.5, 0)
+          .setInteractive({ useHandCursor: true })
+          .on('pointerdown', () => afterSubmit(null))
+        c.add(go)
+        peek.setVisible(false)
+      })
+    }
   }
 
-  private showPlayResult(correct: boolean, manualReveal: boolean, isLast: boolean): void {
+  private showPlayResult(correct: boolean, manualReveal: boolean, isLast: boolean, detail?: string): void {
+    this.answerInput?.destroy()
+    this.answerInput = null
     const c = this.root()
     this.title(c, `闯关 ${this.curLevel?.name ?? ''}`, '放弃', () => this.abort())
     const burst = this.add.image(W / 2, 300, correct ? 'quiz/burst_correct' : 'quiz/burst_wrong').setDisplaySize(80, 80).setDepth(11)
-    const msg = correct ? '答对了！' : manualReveal ? '查看了答案，本题计负。' : '答错了。'
+    const msg = correct ? '答对了！' : manualReveal ? '查看了答案，本题计负。' : '答案不符。'
     const msgText = this.add.text(W / 2, 380, msg, { fontSize: '16px', color: '#ffd75e' }).setOrigin(0.5)
     c.add([burst, msgText])
+    if (detail != null && detail !== '') {
+      const dt = this.add
+        .text(W / 2, 420, detail, {
+          fontSize: '13px',
+          color: '#ffd75e',
+          align: 'center',
+          wordWrap: { width: 384, useAdvancedWrap: true },
+          lineSpacing: 4
+        })
+        .setOrigin(0.5)
+      c.add(dt)
+    }
     const btnLabel = isLast ? '查看结算' : '下一题'
     const btn = this.add
       .text(W / 2, 460, btnLabel, {
@@ -346,6 +430,8 @@ export class Challenge extends Phaser.Scene {
   }
 
   private abort(): void {
+    this.answerInput?.destroy()
+    this.answerInput = null
     this.app.session.Abort()
     this.curLevel = null
     this.showMap(this.chapterId, this.chapterName)

@@ -63,6 +63,23 @@ export class ChallengeSessionController {
     return r
   }
 
+  // 自动判分提交（玩家输入答案）
+  SubmitGraded(input: string, save: GameSave): ChallengeAnswer {
+    const r = this.quiz.SubmitGraded(input, save)
+    if (r.correct) this.correct++
+    this.idx++
+    const level = this.level
+    if (level != null && this.idx < level.questionIds.length) {
+      this.quiz.Present(QuestionBankStatic.Get(level.questionIds[this.idx]))
+    }
+    return {
+      questionId: r.questionId,
+      correct: r.correct,
+      counted: true,
+      manualReveal: r.manualReveal
+    }
+  }
+
   // 结算（R11.6 星级：90/70/50）
   Finish(save: GameSave): LevelResult {
     const level = this.level as Level

@@ -72,6 +72,25 @@ function repairMathText(s) {
     .trim();
 }
 
+// ---------- 机判键提取：答案首行结论（供前端 Grader 自动判分） ----------
+// 仅提取"结论行"；推导式首行/散文式回答 → 空串（该题回退自评模式）
+function extractAnswerKey(answerText) {
+  const lines = String(answerText || '')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l !== '');
+  if (lines.length === 0) return '';
+  let first = lines[0];
+  if (first.startsWith('解')) first = first.replace(/^解\s*/, '');
+  const head = first.split('。')[0].trim();
+  if (head === '' || head.length > 200) return '';
+  if (/^(由|故|设|记|代入|根据|利用|再求)/.test(head)) return '';
+  // 散文式推导首行（中文占比高）不适合机判
+  const han = (head.match(/[\u4e00-\u9fa5]/g) || []).length;
+  if (han / head.length > 0.3) return '';
+  return head;
+}
+
 // ---------- 数学 ----------
 function buildMath() {
   const raw = loadJson(path.join(EXTRACTED, 'math750.json'));
@@ -102,6 +121,7 @@ function buildMath() {
       stem: repairMathText(q.stem),
       options: q.type === 'single' ? [] : [],
       answer: hasAns ? repairMathText(q.answer_text).slice(0, 2000) : '',
+      answerKey: hasAns ? extractAnswerKey(repairMathText(q.answer_text)) : '',
       explanation: hasAns ? '' : '',
       difficulty: q.difficulty,
       source: { book: BOOK, chapter: chap.name, page: '', no: q.num },

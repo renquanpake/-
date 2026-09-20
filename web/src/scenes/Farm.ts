@@ -4,6 +4,9 @@ import { App } from '../app'
 import type { CropState, Question, KnowledgePoint } from '../core/types'
 import { Scheduler } from '../core/Scheduler'
 import { breakMath, makeStem } from '../textutil'
+import { gradeInput } from '../core/Grader'
+import type { GradeResult } from '../core/Grader'
+import { AnswerInput } from '../ui/AnswerInput'
 
 const W = 480
 const H = 920
@@ -34,6 +37,7 @@ export class Farm extends Phaser.Scene {
   private dueBadge!: Phaser.GameObjects.Text
   private picker: Phaser.GameObjects.Container | null = null
   private quiz: Phaser.GameObjects.Container | null = null
+  private answerInput: AnswerInput | null = null
 
   constructor() {
     super('Farm')
@@ -45,9 +49,11 @@ export class Farm extends Phaser.Scene {
 
   create() {
     // 场景重入（从闯关/统计返回）时清掉上一轮的显示对象与引用，防止迭代已销毁对象
-    (this.children as unknown as { removeAll(deep?: boolean): void }).removeAll(true)
+    ;(this.children as unknown as { removeAll(deep?: boolean): void }).removeAll(true)
     this.plots = []
     this.picker = null
+    this.answerInput?.destroy()
+    this.answerInput = null
     this.quiz = null
 
     this.add.image(W / 2, H / 2, 'tiles/grass').setDisplaySize(W, H).setDepth(0)
@@ -353,13 +359,14 @@ export class Farm extends Phaser.Scene {
     c.add(panel)
 
     const isSelfEval = quiz.IsSelfEvalType(q)
+    const gradable = isSelfEval && (q.answerKey ?? '') !== ''
     const stem0 = makeStem(this, q.stem ? breakMath(q.stem) : '（无题干，直接作答）', {
       x: W / 2,
       y: 0,
       width: 396,
       maxH: 320
     })
-    const actionH = isSelfEval ? 100 : q.options != null ? Math.min(q.options.length, 4) * 50 + 10 : 52
+    const actionH = isSelfEval ? (gradable ? 150 : 100) : q.options != null ? Math.min(q.options.length, 4) * 50 + 10 : 52
     const contentH = 70 + stem0.height + 22 + actionH + 200
     const panelH = Math.min(contentH, H - 72)
     // 内容短则卡片垂直居中，长则顶到 56
@@ -389,6 +396,61 @@ export class Farm extends Phaser.Scene {
     panel.setPosition(W / 2, top + panelH / 2)
 
     let answered = false
+    let hint: Phaser.GameObjects.Text | null = null
+
+    // 自动判分提交（gradable 题）：输入 → Grader 判 → 反馈"你的答案/标准答案/明细"
+    const showGraded = (val: string, g: GradeResult) => {
+      if (answered) return
+      answered = true
+      const correct = g.verdict === 'correct'
+      const result = quiz.SubmitGraded(val, save)
+      if (q.kpId) this.app.sched.OnAnswer(q.kpId, result.correct, save)
+      this.app.persist()
+      this.answerInput?.hide()
+
+      const fbTop = actionTop + actionH + 14
+      const burst = this.add
+        .image(W / 2, fbTop, correct ? 'quiz/burst_correct' : 'quiz/burst_wrong')
+        .setDisplaySize(52, 52)
+        .setOrigin(0.5, 0)
+        .setDepth(31)
+      c.add(burst)
+      let detail = correct
+        ? '判分：答对了，作物长大一格！'
+        : g.verdict === 'partial'
+          ? '判分：部分正确'
+          : '判分：答案不符，间隔重置。'
+      detail += `\n你的答案：${val}`
+      detail += `\n标准答案：${g.key}`
+      if (g.detail !== '') detail += `\n${g.detail}`
+      const feedback = makeStem(this, breakMath(detail), {
+        x: W / 2,
+        y: fbTop + 60,
+        width: 380,
+        maxH: 140,
+        fontSize: 14,
+        minFont: 12,
+        color: correct ? '#bfe39a' : '#ffd75e'
+      })
+      c.add(feedback)
+
+      const btn = this.add
+        .text(W / 2, top + panelH - 40, '知道了', {
+          fontSize: '15px',
+          color: '#eaf5dc',
+          backgroundColor: '#2a4023',
+          padding: { x: 14, y: 6 }
+        })
+        .setOrigin(0.5)
+        .setDepth(31)
+        .setInteractive({ useHandCursor: true })
+        .on('pointerdown', () => {
+          this.closeQuiz()
+          this.setMsg(correct ? '浇水成功！' : '下次注意，作物会进入复习')
+          this.refresh()
+        })
+      c.add(btn)
+    }
 
     const showResult = (choice: number | null) => {
       if (answered) return
@@ -436,7 +498,56 @@ export class Farm extends Phaser.Scene {
       c.add(btn)
     }
 
-    if (isSelfEval) {
+    if (gradable) {
+      c.add(
+        this.add
+          .text(W / 2, actionTop, '把做出的答案填进去，提交后自动判分', { fontSize: '12px', color: '#9fb48f' })
+          .setOrigin(0.5, 0)
+      )
+      this.answerInput = new AnswerInput(this)
+      this.answerInput.show(W / 2 - 170, actionTop + 24, 340)
+      const gradeSubmit = () => {
+        if (answered) return
+        const val = this.answerInput?.value() ?? ''
+        if (val === '') {
+          if (hint == null) {
+            hint = this.add
+              .text(W / 2, actionTop + 114, '请先输入你的答案', { fontSize: '12px', color: '#ffb86b' })
+              .setOrigin(0.5, 0)
+            c.add(hint)
+            this.time.delayedCall(1500, () => {
+              if (hint != null) {
+                hint.destroy()
+                hint = null
+              }
+            })
+          }
+          return
+        }
+        showGraded(val, gradeInput(val, q.answerKey ?? ''))
+      }
+      const submit = this.add
+        .text(W / 2 - 95, actionTop + 74, '提交答案', {
+          fontSize: '14px',
+          color: '#bfe39a',
+          backgroundColor: '#243b22',
+          padding: { x: 10, y: 6 }
+        })
+        .setOrigin(0.5, 0)
+        .setInteractive({ useHandCursor: true })
+        .on('pointerdown', gradeSubmit)
+      const learn = this.add
+        .text(W / 2 + 95, actionTop + 74, '没做对，看答案学习', {
+          fontSize: '13px',
+          color: '#ff9f9f',
+          backgroundColor: '#3b2424',
+          padding: { x: 8, y: 6 }
+        })
+        .setOrigin(0.5, 0)
+        .setInteractive({ useHandCursor: true })
+        .on('pointerdown', () => showResult(1))
+      c.add([submit, learn])
+    } else if (isSelfEval) {
       const yes = this.add
         .text(W / 2, actionTop, '我独立做对了 ✓', {
           fontSize: '15px',
@@ -502,5 +613,7 @@ export class Farm extends Phaser.Scene {
       this.quiz.destroy(true)
       this.quiz = null
     }
+    this.answerInput?.destroy()
+    this.answerInput = null
   }
 }

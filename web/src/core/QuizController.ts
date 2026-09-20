@@ -3,6 +3,7 @@
 import type { GameSave, Question, Source } from './types'
 import { ensureV3Fields, utcDateStr } from './types'
 import type { IQuestionBank } from './QuestionBank'
+import { gradeInput } from './Grader'
 
 export enum QuizPhase {
   ShowingQuestion = 'ShowingQuestion',
@@ -17,6 +18,7 @@ export interface ReviewResult {
   answerText: string | null
   answerSource: Source | null
   explanation: string | null
+  gradeDetail: string | null
 }
 
 export interface ChallengeAnswer {
@@ -92,7 +94,7 @@ export class QuizController {
 
   // 提交作答。
   // 客观题（single/judge）：choice 为选项索引。
-  // 自评题（calc/blank/multi，v1 无机器判分）：choice 0=我独立做对，1=未做对（看答案学习）。
+  // 自评题（calc/blank/multi）：choice 0=我独立做对，1=未做对（看答案学习）。
   // 返回判定结果，自动展开答案（→ JUDGED）
   Submit(choice: number | null, save: GameSave | null): ReviewResult {
     let correct = false
@@ -108,10 +110,22 @@ export class QuizController {
           : null
         correct = choice != null && parsed !== null && choice === parsed
       } else if (this.IsSelfEvalType(this.current)) {
-        // 自评模式：玩家对照折叠答案自评（v1 计算/证明/填空无机器判分）
+        // 自评模式：玩家对照折叠答案自评
         correct = choice != null && choice === 0
       }
     }
+    return this.submitWith(correct, save, null)
+  }
+
+  // 自动判分提交：玩家输入答案，按 Grader 判定（偷看过答案仍强制判负）
+  SubmitGraded(input: string, save: GameSave | null): ReviewResult {
+    const g = gradeInput(input, this.current?.answerKey ?? '')
+    return this.submitWith(g.verdict === 'correct', save, g.detail)
+  }
+
+  // 提交公共尾部：防作弊 / 连对暴击 / 日志 / 阶段推进
+  private submitWith(initialCorrect: boolean, save: GameSave | null, gradeDetail: string | null): ReviewResult {
+    let correct = initialCorrect
 
     // 防作弊：主动展开过的题，最终判定恒为 wrong（Correctness Property 7）
     if (this.manualRevealed) correct = false
@@ -147,7 +161,8 @@ export class QuizController {
       manualReveal: this.manualRevealed,
       answerText: this.current?.answer ?? null,
       explanation: this.current?.explanation ?? null,
-      answerSource: this.current?.answerSource ?? null
+      answerSource: this.current?.answerSource ?? null,
+      gradeDetail: gradeDetail
     }
 
     if (this.OnAnswerSubmitted != null) this.OnAnswerSubmitted(correct)
