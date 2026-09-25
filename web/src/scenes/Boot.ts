@@ -53,7 +53,7 @@ export class Boot extends Phaser.Scene {
           })
         )
         this.registry.set('app', new App(banks))
-        this.scene.start('Farm')
+        this.scene.start('Challenge')
       } catch (err) {
         console.error('boot failed:', err)
         this.add

@@ -78,7 +78,7 @@ export class Challenge extends Phaser.Scene {
   private showChapters(): void {
     this.view = 'chapters'
     const c = this.root()
-    this.title(c, '数学闯关 · 选章节', '农场', () => this.scene.start('Farm'))
+    this.title(c, '闯关 · 选章节', '统计', () => this.scene.start('Stats'))
     const chapters = this.app.bank.Subjects.flatMap(s => s.chapters ?? [])
     const withLevels = chapters.filter(ch => this.app.bank.GetLevels(ch.id).length > 0)
     if (withLevels.length === 0) {
@@ -453,12 +453,12 @@ export class Challenge extends Phaser.Scene {
     const lines = [
       `答对 ${r.correct} / ${r.total}（${Math.round(r.rate * 100)}%）`
     ]
-    if (r.cleared) lines.push('已通关，奖励已发放')
+    if (r.cleared) lines.push('已通关')
     else lines.push(`未达通关线（${Math.round(this.passPct())}%），再试一次`)
     const lv = this.curLevel
     if (lv != null && lv.isBoss && r.cleared) {
       const chapAll3 = this.allChapterThreeStars()
-      if (chapAll3) lines.push('本章全 3 星，宝箱已开启！')
+      if (chapAll3) lines.push('本章全 3 星达成！')
     }
     const body = this.add
       .text(W / 2, 350, lines.join('\n'), {

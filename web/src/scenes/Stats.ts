@@ -26,12 +26,12 @@ export class Stats extends Phaser.Scene {
 
     c.add(
       this.add
-        .text(12, 20, '← 农场', { fontSize: '13px', color: '#ff9f9f', backgroundColor: '#241a1a', padding: { x: 8, y: 4 } })
+        .text(12, 20, '← 返回', { fontSize: '13px', color: '#ff9f9f', backgroundColor: '#241a1a', padding: { x: 8, y: 4 } })
         .setOrigin(0, 0)
         .setInteractive({ useHandCursor: true })
         .on('pointerdown', () => {
           this.app.persist()
-          this.scene.start('Farm')
+          this.scene.start('Challenge')
         })
     )
     c.add(this.add.text(W / 2, 64, '📊 学习统计', { fontSize: '18px', color: '#eaf5dc' }).setOrigin(0.5, 0))
