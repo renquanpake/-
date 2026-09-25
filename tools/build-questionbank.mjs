@@ -91,6 +91,30 @@ function extractAnswerKey(answerText) {
   return head;
 }
 
+// ---------- 嵌入式选择题：题干尾部 (A)...(B)...(C)...(D) 选项提取 ----------
+// 仅当四个标记按 A→B→C→D 连续出现且选项区位于题干后段时才提取；否则返回 null
+function extractEmbeddedOptions(stem) {
+  const s = String(stem || '');
+  const re = /[（(]\s*([A-D])\s*[)）]/g;
+  const marks = [];
+  let m;
+  while ((m = re.exec(s)) !== null) marks.push({ letter: m[1], idx: m.index, end: re.lastIndex });
+  if (marks.map((x) => x.letter).join('') !== 'ABCD') return null;
+  if (marks[0].idx < s.length * 0.3) return null;
+  const stemPart = s.slice(0, marks[0].idx).trim().replace(/[：:]$/, '');
+  if (stemPart.length < 8) return null;
+  const opts = [];
+  for (let i = 0; i < 4; i++) {
+    const start = marks[i].end;
+    const stop = i < 3 ? marks[i + 1].idx : s.length;
+    let text = s.slice(start, stop).replace(/\n/g, ' ').replace(/[ \t]+/g, ' ').trim();
+    text = text.replace(/[；;。]\s*$/, '').trim();
+    if (text === '') return null;
+    opts.push(text);
+  }
+  return { stem: stemPart, options: opts };
+}
+
 // ---------- 选择题选项生成：answerKey → [正确项, 干扰项×3]；无法生成返回 null（该题保留填空判分） ----------
 
 // 数值化（白名单校验 + 受控求值；含自由变量/不可解析 → null）
@@ -388,6 +412,8 @@ function shuffled(arr, seed) {
 function buildMath() {
   const raw = loadJson(path.join(EXTRACTED, 'math750.json'));
   const qs = raw.questions;
+  // 无答案题的自解答案键（solved-c*.json 合并产物，人工逐题求解并页图核对）
+  const supKeys = loadJson(path.join(EXTRACTED, 'math750-solved.json'));
 
   // 章节推断：按题号范围与 13 章对应（下册第8-13章）
   // 用题目里的章节关键词切分（从 stem 前的章节标题）
@@ -405,35 +431,49 @@ function buildMath() {
   for (const q of qs) {
     const chap = chapters.find((c) => q.num >= c.from && q.num <= c.to) || chapters[0];
     const id = `math.q${String(q.num).padStart(4, '0')}`;
+    const supKey = String(supKeys[String(q.num)] ?? '');
     const hasAns = q.has_answer && q.answer_text.trim().length > 0;
     const repairedAnswer = hasAns ? repairMathText(q.answer_text) : '';
-    const key = hasAns ? extractAnswerKey(repairedAnswer) : '';
-    const optGroup = buildOptionsForKey(key);
-    // 可出题 → 选择题（选项打乱、记录正确索引）；否则 → 填空（输入判分）/ 自评
-    let type, options = [], answerIdx = 0;
-    if (optGroup != null) {
+    const extracted = hasAns ? extractAnswerKey(repairedAnswer) : '';
+    // 书本答案提取失败时回退到补充 key（避免 hasAns 题丢答案）
+    const key = extracted !== '' ? extracted : supKey;
+    const repairedStem = repairMathText(q.stem);
+    // 嵌入式选择题：题干自带 (A)-(D) 选项 + 自解字母答案 → 原生选择题
+    const emb = extractEmbeddedOptions(repairedStem);
+    let type, options = [], answer = '', stemFinal = repairedStem;
+    if (emb != null && /^[A-D]$/.test(key)) {
       type = 'single';
-      options = shuffled(optGroup.slice(), q.num * 7919 + 13);
-      answerIdx = options.indexOf(optGroup[0]);
-    } else if (key !== '' || q.type === 'proof') {
-      type = 'blank';
+      stemFinal = emb.stem;
+      options = emb.options;
+      answer = String('ABCD'.indexOf(key));
     } else {
-      type = 'calc';
+      const optGroup = buildOptionsForKey(key);
+      // 可出题 → 选择题（选项打乱、记录正确索引）；否则 → 填空（输入判分）/ 自评
+      if (optGroup != null) {
+        type = 'single';
+        options = shuffled(optGroup.slice(), q.num * 7919 + 13);
+        answer = String(options.indexOf(optGroup[0]));
+      } else if (key !== '' || q.type === 'proof') {
+        type = 'blank';
+        answer = hasAns ? repairedAnswer.slice(0, 2000) : key;
+      } else {
+        type = 'calc';
+      }
     }
     questions.push({
       id,
       num: q.num,
       kpId: `${chap.id}.kp01`,
       type,
-      stem: repairMathText(q.stem),
+      stem: stemFinal,
       options,
-      answer: type === 'single' ? String(answerIdx) : hasAns ? repairedAnswer.slice(0, 2000) : '',
+      answer,
       answerKey: key,
-      explanation: hasAns ? '' : '',
+      explanation: '',
       difficulty: q.difficulty,
       source: { book: BOOK, chapter: chap.name, page: '', no: q.num },
-      answerSource: hasAns ? { book: BOOK, page: '答案区', no: q.num } : null,
-      needsReview: !hasAns,
+      answerSource: hasAns ? { book: BOOK, page: '答案区', no: q.num } : { book: `${BOOK}·AI 拟答`, page: '', no: q.num },
+      needsReview: !(hasAns || supKey !== ''),
     });
   }
 
@@ -489,7 +529,11 @@ function buildMath() {
 
 // ---------- 环工 ----------
 function buildEnv() {
-  const raw = loadJson(path.join(EXTRACTED, 'env.json'));
+  // 优先加载 AI 拟写的真题（env-real.json），回退占位题 env.json
+  let realPath = path.join(EXTRACTED, 'env-real.json');
+  let raw = fs.existsSync(realPath)
+    ? loadJson(realPath)
+    : loadJson(path.join(EXTRACTED, 'env.json'));
   const sourceBook = raw.source_book || raw.sourceBook;
   // 按 chapter 分组为两个科目田区（环工原理 / 环工第三版）
   const chapters = [
@@ -531,12 +575,37 @@ function buildEnv() {
     stem: q.stem,
     options: q.options || [],
     answer: q.answer ?? '',
+    answerKey: q.answer_key ?? q.answerKey ?? '',
     explanation: q.explanation ?? '',
     difficulty: q.difficulty ?? 1,
     source: q.source || { book: sourceBook },
     answerSource: q.answer_source || q.answerSource || q.source || { book: sourceBook },
     needsReview: q.needs_review ?? q.needsReview ?? true,
   }));
+
+  // 关卡：每 10 题 1 关（与 math 同规则），只用 needs_review=false 的题
+  for (const chap of chapters) {
+    const prefix = chap.id === 'env.ch01' ? 'env.' : 'envp.';
+    const playable = questions.filter((q) => String(q.kpId).startsWith(prefix) && !q.needsReview);
+    const groups = [];
+    for (let i = 0; i < playable.length; i += 10) {
+      groups.push(playable.slice(i, i + 10));
+    }
+    groups.forEach((g, i) => {
+      if (g.length === 0) return;
+      const isBoss = i === groups.length - 1;
+      chap.levels.push({
+        id: `${chap.id}.lv${String(i + 1).padStart(2, '0')}`,
+        name: isBoss ? 'Boss关' : `第${i + 1}关`,
+        questionIds: g.map((q) => q.id),
+        passRate: 0.5,
+        star3Rate: 0.9,
+        star2Rate: 0.7,
+        isBoss: isBoss,
+        firstClearReward: { fruit: 30, seeds: 2 },
+      });
+    });
+  }
 
   return {
     subject: 'env',
